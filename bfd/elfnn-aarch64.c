@@ -1465,6 +1465,9 @@ elfNN_aarch64_howto_from_bfd_reloc (bfd_reloc_code_real_type code)
     if (elfNN_aarch64_howto_table[code - BFD_RELOC_AARCH64_RELOC_START].type)
       return &elfNN_aarch64_howto_table[code - BFD_RELOC_AARCH64_RELOC_START];
 
+  if (code == BFD_RELOC_AARCH64_NONE)
+    return &elfNN_aarch64_howto_none;
+
   return NULL;
 }
 
@@ -4807,7 +4810,7 @@ elfNN_aarch64_check_relocs (bfd *abfd, struct bfd_link_info *info,
 		  htab->root.dynobj = abfd;
 
 		sreloc = _bfd_elf_make_dynamic_reloc_section
-		  (sec, htab->root.dynobj, 3, abfd, /*rela? */ TRUE);
+		  (sec, htab->root.dynobj, LOG_FILE_ALIGN, abfd, /*rela? */ TRUE);
 
 		if (sreloc == NULL)
 		  return FALSE;

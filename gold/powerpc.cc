@@ -1219,7 +1219,8 @@ Target::Target_info Target_powerpc<32, true>::powerpc_info =
   0,			// small_common_section_flags
   0,			// large_common_section_flags
   NULL,			// attributes_section
-  NULL			// attributes_vendor
+  NULL,			// attributes_vendor
+  "_start"		// entry_symbol_name
 };
 
 template<>
@@ -1245,7 +1246,8 @@ Target::Target_info Target_powerpc<32, false>::powerpc_info =
   0,			// small_common_section_flags
   0,			// large_common_section_flags
   NULL,			// attributes_section
-  NULL			// attributes_vendor
+  NULL,			// attributes_vendor
+  "_start"		// entry_symbol_name
 };
 
 template<>
@@ -1271,7 +1273,8 @@ Target::Target_info Target_powerpc<64, true>::powerpc_info =
   0,			// small_common_section_flags
   0,			// large_common_section_flags
   NULL,			// attributes_section
-  NULL			// attributes_vendor
+  NULL,			// attributes_vendor
+  "_start"		// entry_symbol_name
 };
 
 template<>
@@ -1297,7 +1300,8 @@ Target::Target_info Target_powerpc<64, false>::powerpc_info =
   0,			// small_common_section_flags
   0,			// large_common_section_flags
   NULL,			// attributes_section
-  NULL			// attributes_vendor
+  NULL,			// attributes_vendor
+  "_start"		// entry_symbol_name
 };
 
 inline bool
@@ -6199,7 +6203,7 @@ Target_powerpc<size, big_endian>::symval_for_branch(
   Address opd_addr = symobj->get_output_section_offset(shndx);
   if (opd_addr == invalid_address)
     return value;
-  opd_addr += symobj->output_section(shndx)->address();
+  opd_addr += symobj->output_section_address(shndx);
   if (value >= opd_addr && value < opd_addr + symobj->section_size(shndx))
     {
       Address sec_off;

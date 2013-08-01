@@ -1,3 +1,63 @@
+2013-07-31  John Tytgat  <john@bass-software.com>
+
+	PR ld/15787
+	* elf32-arm.c (elf32_arm_final_link_relocate): Base SB on the
+	output section VMA.
+
+2013-07-28  Maciej W. Rozycki  <macro@linux-mips.org>
+
+	* elf64-hppa.c (elf64_hppa_finish_dynamic_sections)
+	<DT_HP_LOAD_MAP>: Return unsuccessfully if there's no `.data'
+	section.
+
+2013-07-27  Andrew Pinski  <apinski@cavium.com>
+
+	* elfnn-aarch64.c (elfNN_aarch64_check_relocs):
+	Use the correct alignment for
+	_bfd_elf_make_dynamic_reloc_section for ILP32.
+
+2013-07-27  Andrew Pinski  <apinski@cavium.com>
+
+	* elfnn-aarch64.c (elfNN_aarch64_howto_from_bfd_reloc): Handle
+	BFD_RELOC_AARCH64_NONE explicitly.
+
+2013-07-27  Maciej W. Rozycki  <macro@linux-mips.org>
+
+	* elf32-vax.c (elf_vax_finish_dynamic_sections): Don't set GOT's
+	entry size if there is no ELF section data.
+
+2013-07-27  Maciej W. Rozycki  <macro@linux-mips.org>
+
+	* elf32-vax.c (elf_vax_check_relocs) <R_VAX_GOT32, R_VAX_PLT32>:
+	Don't check symbol visibility here.  Remove a check already
+	asserted for.
+	(elf_vax_instantiate_got_entries): Use SYMBOL_REFERENCES_LOCAL
+	instead of individual checks.
+	(elf_vax_relocate_section) <R_VAX_GOT32, R_VAX_PLT32>: Only
+	check the offset to decide if produce a GOT or PLT entry.
+	Remove redundant assertions.  Remove code to produce GOT entries
+	for local symbols.  Remove a duplicate comment and add a comment
+	on GOT relocations.
+	(elf_vax_finish_dynamic_symbol): Remove code to produce RELATIVE
+	dynamic relocs.
+
+2013-07-27  Maciej W. Rozycki  <macro@linux-mips.org>
+
+	* elf32-vax.c (elf_vax_always_size_sections): Correct a comment
+	typo.
+
+2013-07-27  Maciej W. Rozycki  <macro@linux-mips.org>
+
+	* elf32-vax.c (elf_vax_discard_got_entries): New function.
+	(elf_vax_always_size_sections): Likewise.
+	(elf_vax_size_dynamic_sections): Remove code moved to
+	elf_vax_always_size_sections.  Make comment on
+	elf_vax_instantiate_got_entries match reality.
+	(elf_vax_instantiate_got_entries): Assert that rather than check
+	if dynobj is null.  Don't check for dynamic_sections_created.
+	Make function description match reality.
+	(elf_backend_always_size_sections): New macro.
+
 2013-07-25  Alan Modra  <amodra@gmail.com>
 
 	* elf64-ppc.c (struct ppc64_elf_obj_tdata): Replace opd_relocs

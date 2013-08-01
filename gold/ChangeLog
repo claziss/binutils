@@ -1,3 +1,73 @@
+2013-07-31  Cary Coutant  <ccoutant@google.com>
+
+	* object.cc (Sized_relobj::do_output_section_address): New function.
+	(Sized_relobj): Instantiate explicitly.
+	* object.h (Object::output_section_address): New function.
+	(Object::do_output_section_address): New function.
+	(Sized_relobj::do_output_section_address): New function.
+	* powerpc.cc (Target_powerpc::symval_for_branch): Use it.
+
+2013-07-30  Cary Coutant  <ccoutant@google.com>
+	    Sasa Stankovic  <Sasa.Stankovic@imgtec.com>
+
+	* parameters.cc (Parameters::entry): Return target-specific entry
+	symbol name.
+	* target.h (Target::entry_symbol_name): New function.
+	(Target_info::entry_symbol_name): New data member.
+
+	* arm.cc (Target_arm::arm_info): Add entry_symbol_name.
+	* i386.cc (Target_i386::i386_info): Likewise.
+	(Target_i386_nacl::i386_nacl_info): Likewise.
+	* sparc.cc (Target_sparc::sparc_info): Likewise.
+	* tilegx.cc (Target_tilegx::tilegx_info): Likewise.
+	* x86_64.cc: (Target_x86_64::x86_64_info) Likewise.
+	(Target_x86_64_nacl::x86_64_nacl_info) Likewise.
+	* testsuite/testfile.cc (Target_test::test_target_info): Likewise.
+
+2013-07-22  Sterling Augustine  <saugustine@google.com>
+
+	* dwarf_reader.cc (Dwarf_pubnames_table::read_section):
+	Convert parameter shndx to local variable. Add parameters symtab
+	and symtab_size.  Scan over section names.  Find relocation
+	section corresponding to current section.  Create and initialize
+	reloc_mapper_ and reloc_type_.
+	(Dwarf_pubnames_table::read_header):  Add assertion.  Change
+	unit_length to off_t.  Initialize member unit_length_.  Fill in field
+	cu_offset_.
+	* dwarf_reader.h (Dwarf_pubnames_table::Dwarf_pubnames_table):
+	Initialize new fields unit_length_ and cu_offset_.
+	(Dwarf_pubnames_table::read_section): Update prototype.
+	(Dwarf_pubnames_table::cu_offset): New member function.
+	(Dwarf_pubnames_table::subsection_size): Likewise.
+	(Dwarf_pubnames_table::cu_offset_, Dwarf_pubnames_table::unit_length):
+	New fields.
+	(Dwarf_info_reader::symtab, Dwarf_info_reader::symtab_size): Make
+	member functions public.
+	* gdb_index.cc (Gdb_index_info_reader::read_pubnames_and_pubtypes):
+	Update comment.  Rework logic.  Move repeated parts to...
+	(Gdb_index_info_reader::read_pubtable): ...here. New function.
+	(Gdb_index::Gdb_index): Initialize new fields, pubnames_table_,
+	pubtypes_table_, and stmt_list_offset.
+	(Gdb_index::map_pubtable_to_dies, Gdb_index::find_pubname_offset,
+	Gdb_index::find_pubtype_offset,
+	Gdb_index::map_pubnames_and_types_to_dies): Define new functions.
+	(Gdb_index::pubnames_read): Update prototype and rework logic.
+	* gdb_index.h (Gdb_index_info_reader, Dwarf_pubnames_table):
+	Forward declare.
+	(Gdb_index::map_pubtable_to_dies, Gdb_index::find_pubname_offset,
+	Gdb_index::find_pubtype_offset, Gdb_index::pubnames_table)
+	Gdb_index::pubtypes_table, Gdb_index::map_pubnames_and_types_to_dies,
+	Gdb_index::map_pubtable_to_dies):
+	Declare functions.
+	(Gdb_index::pubnames_read): Update declaration.
+	(Gdb_index::Pubname_offset_map): New type.
+	(Gdb_index::cu_pubname_map_, Gdb_index::cu_pubtype_map_,
+	Gdb_index::pubnames_table_, Gdb_index::pubtypes_table_,
+	Gdb_index::stmt_list_offset): Declare.
+	(Gdb_index::pubnames_shndx_, Gdb_index::pubnames_offet_,
+	Gdb_index::pubtypes_object_, Gdb_index::pubtypes_shndx_)
+	Gdb_index::pubtypes_offset_): Remove.
+
 2013-07-19  Roland McGrath  <mcgrathr@google.com>
 
 	* options.h (General_options): Add -Trodata-segment option.
