@@ -592,6 +592,9 @@ guess_is_rela (unsigned int e_machine)
     case EM_ADAPTEVA_EPIPHANY:
     case EM_ALPHA:
     case EM_ALTERA_NIOS2:
+    case EM_ARC:
+    case EM_ARCOMPACT:
+    case EM_ARCV2:
     case EM_AVR:
     case EM_AVR_OLD:
     case EM_BLACKFIN:
@@ -1165,6 +1168,8 @@ dump_relocations (FILE * file,
 	  rtype = elf_arm_reloc_type (type);
 	  break;
 
+	case EM_ARCOMPACT:
+	case EM_ARCV2:
 	case EM_ARC:
 	  rtype = elf_arc_reloc_type (type);
 	  break;
@@ -2010,7 +2015,8 @@ get_machine_name (unsigned e_machine)
     case EM_XSTORMY16:		return "Sanyo XStormy16 CPU core";
     case EM_OPENRISC:
     case EM_OR32:		return "OpenRISC";
-    case EM_ARC_A5:		return "ARC International ARCompact processor";
+    case EM_ARCV2:              return "Synopsys ARCompactV2 processor";
+    case EM_ARCOMPACT:		return "Synopsys ARCompact processor";
     case EM_CRX:		return "National Semiconductor CRX microprocessor";
     case EM_ADAPTEVA_EPIPHANY:	return "Adapteva EPIPHANY";
     case EM_DLX:		return "OpenDLX";
@@ -2319,6 +2325,52 @@ get_machine_flags (unsigned e_flags, unsigned e_machine)
       switch (e_machine)
 	{
 	default:
+	  break;
+	case EM_ARCV2:
+	  switch(e_flags & EF_ARC_MACH_MSK)
+	    {
+	    case E_ARC_MACH_ARCV2:
+	      strcat (buf, ", ARCv2");
+	      break;
+	    default:
+	      strcat (buf, ", Generic ARCv2");
+	      break;
+	    }
+	  switch(e_flags & EF_ARC_OSABI_MSK)
+	    {
+	      /* Only upstream 3.9+ kernels will support ARCv2 ISA */
+	    case E_ARC_OSABI_V3:
+	      strcat (buf, ", v3 no-legacy-syscalls ABI");
+	      break;
+	    }
+	  break;
+	case EM_ARCOMPACT:
+	  switch(e_flags & EF_ARC_MACH_MSK)
+	    {
+	    case E_ARC_MACH_ARC700:
+	      strcat (buf, ", ARC700");
+	      break;
+	    default:
+	      strcat (buf, ", Generic ARCompact");
+	      break;
+	    }
+	  switch(e_flags & EF_ARC_OSABI_MSK)
+	    {
+	    case E_ARC_OSABI_ORIG:
+	      strcat (buf, ", legacy syscall ABI");
+	      break;
+	    case E_ARC_OSABI_V2:
+	      /* For 3.2+ Linux kernels which use asm-generic hdrs */
+	      strcat (buf, ", v2 syscall ABI");
+	      break;
+	    case E_ARC_OSABI_V3:
+	      /* upstream 3.9+ kernels which don't use any legacy syscalls */
+	      strcat (buf, ", v3 no-legacy-syscalls ABI");
+	      break;
+	    }
+	  break;
+	case EM_ARC:
+	  strcat (buf, ", A4");
 	  break;
 
 	case EM_ARM:
@@ -10150,8 +10202,10 @@ is_32bit_abs_reloc (unsigned int reloc_type)
       return reloc_type == 258; /* R_AARCH64_ABS32 */
     case EM_ALPHA:
       return reloc_type == 1; /* R_ALPHA_REFLONG.  */
-    case EM_ARC:
-      return reloc_type == 1; /* R_ARC_32.  */
+    case EM_ARCOMPACT:
+    case EM_ARCV2:
+     case EM_ARC:
+      return reloc_type == 4; /* R_ARC_32.  */
     case EM_ARM:
       return reloc_type == 2; /* R_ARM_ABS32 */
     case EM_AVR_OLD:
@@ -10453,6 +10507,10 @@ is_16bit_abs_reloc (unsigned int reloc_type)
 {
   switch (elf_header.e_machine)
     {
+    case EM_ARC:
+    case EM_ARCOMPACT:
+    case EM_ARCV2:
+      return reloc_type == 2; /* R_ARC_16.  */
     case EM_AVR_OLD:
     case EM_AVR:
       return reloc_type == 4; /* R_AVR_16.  */
@@ -10517,6 +10575,9 @@ is_none_reloc (unsigned int reloc_type)
     case EM_ADAPTEVA_EPIPHANY:
     case EM_PPC:     /* R_PPC_NONE.  */
     case EM_PPC64:   /* R_PPC64_NONE.  */
+    case EM_ARC:     /* R_ARC_NONE.  */
+    case EM_ARCOMPACT: /* R_ARC_NONE.  */
+    case EM_ARCV2:   /* R_ARC_NONE.  */
     case EM_ARM:     /* R_ARM_NONE.  */
     case EM_IA_64:   /* R_IA64_NONE.  */
     case EM_SH:      /* R_SH_NONE.  */
