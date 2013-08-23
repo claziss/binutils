@@ -15,5 +15,11 @@ ARCH=arc
 MACHINE=
 ENTRY=__start
 SDATA_START_SYMBOLS='__SDATA_BEGIN__ = .;'
-OTHER_SECTIONS="/DISCARD/ : { *(.__arc_profile_*) }"
+OTHER_READONLY_SECTIONS="
+  .__arc_profile_desc ${RELOCATING-0} : { *(.__arc_profile_desc) }
+  .__arc_profile_forward ${RELOCATING-0} : { *(.__arc_profile_forward) }
+"
+OTHER_BSS_SECTIONS="
+  .__arc_profile_counters ${RELOCATING-0} : { *(.__arc_profile_counters) }
+"
 EMBEDDED=yes

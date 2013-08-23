@@ -622,10 +622,12 @@ insert_operand (unsigned insn,
 		char *file,
 		unsigned line)
 {
-  if (operand->bits != 32 && !(operand->flags & ARC_OPERAND_NOOVERFLOW))
+  if (operand->bits != 32)
     {
       offsetT min, max;
 
+      /*FIXME*/
+#define ARC_OPERAND_SIGNED 0x00
       if (operand->flags & ARC_OPERAND_SIGNED)
 	{
 	  max = (1 << (operand->bits - 1)) - 1;
