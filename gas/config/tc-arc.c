@@ -39,6 +39,7 @@
 /**************************************************************************/
 
 #define MAX_INSN_ARGS        3
+#define MAX_INSN_FLGS        3
 #define MAX_FLAG_NAME_LENGHT 3
 #define MAX_INSN_FIXUPS      2
 
@@ -135,7 +136,7 @@ cpu_types[] =
 
 struct arc_flags
 {
-  unsigned gicu;
+  char name[MAX_FLAG_NAME_LENGHT];
 };
 
 /* A table of the register symbols.  */
@@ -145,11 +146,11 @@ static symbolS *arc_register_table[64];
 /* Functions implementation                                               */
 /**************************************************************************/
 
-static void assemble_tokens (const char *, const expressionS *, int, const struct arc_flags *);
+static void assemble_tokens (const char *, const expressionS *, int, const struct arc_flags *, int);
 static const struct arc_opcode *find_opcode_match (const struct arc_opcode *, const expressionS *,
 						   int *, int *);
-static void assemble_insn (const struct arc_opcode *, const expressionS *,int ntok, struct arc_insn *,
-			   extended_bfd_reloc_code_real_type);
+static void assemble_insn (const struct arc_opcode *, const expressionS *,int, const struct arc_flags *, int,
+			   struct arc_insn *, extended_bfd_reloc_code_real_type);
 static void emit_insn (struct arc_insn *);
 
 static unsigned insert_operand (unsigned, const struct arc_operand *, offsetT, char *, unsigned);
@@ -270,20 +271,19 @@ arc_opcode_lookup (arc_isa isa,
 }
 #endif
 
-#if 0
 /* Parse the flags to a structure */
 static int
 tokenize_flags (char *str,
-		struct arc_flags *pflags)
+		struct arc_flags flags[],
+		int nflg)
 {
   char *old_input_line_pointer;
   bfd_boolean saw_flg = FALSE;
   bfd_boolean saw_dot = FALSE;
   int num_flags  = 0;
   size_t flgnamelen;
-  char *flgname;
 
-  flgname = xmalloc (MAX_FLAG_NAME_LENGHT + 1);
+  memset (flags, 0, sizeof (*flags) * nflg);
 
   /* Save and restore input_line_pointer around this function.  */
   old_input_line_pointer = input_line_pointer;
@@ -309,29 +309,29 @@ tokenize_flags (char *str,
 	  if (saw_flg && !saw_dot)
 	    goto err;
 
+	  if (num_flags >= nflg)
+	    goto err;
+
 	  flgnamelen = strspn (input_line_pointer, "abcdefghilmnopqrstvwxz");
 	  if (flgnamelen > MAX_FLAG_NAME_LENGHT)
 	    goto err;
-	  memcpy (flgname, input_line_pointer, flgnamelen);
-	  flgname[flgnamelen] = '\0';
-	  if (arc_flag_lookup (isa_flag, flgname, pflags) == -1)
-	    goto err;
+
+	  memcpy (flags->name, input_line_pointer, flgnamelen);
 
 	  input_line_pointer += flgnamelen;
+	  flags++;
 	  saw_dot = FALSE;
 	  saw_flg = TRUE;
-	  num_flag++;
+	  num_flags++;
 	  break;
 	}
     }
 
  fini:
-  xfree (flgname);
   input_line_pointer = old_input_line_pointer;
   return num_flags;
 
  err:
-  xfree (flgname);
   if (saw_dot)
     as_bad (_("extra dot"));
   else if (!saw_flg)
@@ -341,7 +341,6 @@ tokenize_flags (char *str,
   input_line_pointer = old_input_line_pointer;
   return -1;
 }
-#endif
 
 /* The public interface to the instruction assembler.  */
 void
@@ -351,7 +350,7 @@ md_assemble (char *str)
   expressionS tok[MAX_INSN_ARGS];
   int ntok, nflg;
   size_t opnamelen;
-  struct arc_flags flags;
+  struct arc_flags flags[MAX_INSN_FLGS];
 
   /* Split off the opcode.  */
   opnamelen = strspn (str, "abcdefghijklmnopqrstuvwxyz_012368");
@@ -359,24 +358,29 @@ md_assemble (char *str)
   memcpy (opname, str, opnamelen);
   opname[opnamelen] = '\0';
 
-#if 0
   /* Tokenize the flags */
-  if ((nflg = tokenize_flags (str + opnamelen, &flags)) == -1)
+  if ((nflg = tokenize_flags (str + opnamelen, flags, MAX_INSN_FLGS)) == -1)
     {
       as_bad (_("syntax error"));
       return;
     }
-#endif
+
+  /* Scan up to the end of the mnemonic which must end in space or end
+     of string. */
+  str += opnamelen;
+  for (; *str != '\0'; str++)
+    if (*str == ' ')
+      break;
 
   /* Tokenize the rest of the line.  */
-  if ((ntok = tokenize_arguments (str + opnamelen + nflg, tok, MAX_INSN_ARGS)) < 0)
+  if ((ntok = tokenize_arguments (str, tok, MAX_INSN_ARGS)) < 0)
     {
       as_bad (_("syntax error"));
       return;
     }
 
   /* Finish it off. */
-  assemble_tokens (opname, tok, ntok, &flags);
+  assemble_tokens (opname, tok, ntok, flags, nflg);
 }
 
 /* Port-specific assembler initialization. This function is called
@@ -553,7 +557,8 @@ static void
 assemble_tokens (const char *opname,
 		 const expressionS *tok,
 		 int ntok,
-		 const struct arc_flags *pflags)
+		 const struct arc_flags *pflags,
+		 int nflgs)
 {
   int found_something = 0;
   const struct arc_opcode *opcode;
@@ -569,7 +574,7 @@ assemble_tokens (const char *opname,
       if (opcode)
 	{
 	  struct arc_insn insn;
-	  assemble_insn (opcode, tok, ntok, &insn, reloc);
+	  assemble_insn (opcode, tok, ntok, pflags, nflgs, &insn, reloc);
 
 	  /* Copy the sequence number for the reloc from the reloc token.  */
 	  if (reloc != BFD_RELOC_UNUSED)
@@ -671,6 +676,8 @@ static void
 assemble_insn (const struct arc_opcode *opcode,
 	       const expressionS *tok,
 	       int ntok,
+	       const struct arc_flags *pflags,
+	       int nflg,
 	       struct arc_insn *insn,
 	       extended_bfd_reloc_code_real_type reloc)
 {
@@ -683,6 +690,7 @@ assemble_insn (const struct arc_opcode *opcode,
   memset (insn, 0, sizeof (*insn));
   image = opcode->opcode;
 
+  /* Handle operands. */
   for (argidx = opcode->operands; *argidx; ++argidx)
     {
       const struct arc_operand *operand = &arc_operands[*argidx];
@@ -713,6 +721,9 @@ assemble_insn (const struct arc_opcode *opcode,
 	  break;
 	}
     }
+
+  /* Handle flags. */
+
 
   /* Short instruction? */
   insn->short_insn = (opcode->mask & 0xFFFF0000) ? 0 : 1;
