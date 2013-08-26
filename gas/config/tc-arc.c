@@ -43,6 +43,13 @@
 #define MAX_INSN_FIXUPS      2
 
 /**************************************************************************/
+/* Macros                                                                 */
+/**************************************************************************/
+
+#define regno(x)		((x) & 31)
+#define is_ir_num(x)		(((x) & 32) == 0)
+
+/**************************************************************************/
 /* Generic assembler global variables which must be defined by all        */
 /* targets.                                                               */
 /**************************************************************************/
@@ -64,6 +71,10 @@ const char EXP_CHARS[] = "eE";
 /* Chars that mean this number is a floating point constant
    As in 0f12.456 or 0d1.2345e12.  */
 const char FLT_CHARS[] = "rRsSfFdD";
+
+/* Byte order.  */
+extern int target_big_endian;
+static int byte_order = DEFAULT_BYTE_ORDER;
 
 const pseudo_typeS md_pseudo_table[] =
   { {0, 0, 0} };
@@ -98,6 +109,7 @@ struct arc_insn
   int nfixups;
   struct arc_fixup fixups[MAX_INSN_FIXUPS];
   long sequence;
+  unsigned char short_insn;
 };
 
 /* The cpu for which we are generating code.  */
@@ -126,6 +138,9 @@ struct arc_flags
   unsigned gicu;
 };
 
+/* A table of the register symbols.  */
+static symbolS *arc_register_table[64];
+
 /**************************************************************************/
 /* Functions implementation                                               */
 /**************************************************************************/
@@ -136,6 +151,9 @@ static const struct arc_opcode *find_opcode_match (const struct arc_opcode *, co
 static void assemble_insn (const struct arc_opcode *, const expressionS *,int ntok, struct arc_insn *,
 			   extended_bfd_reloc_code_real_type);
 static void emit_insn (struct arc_insn *);
+
+static unsigned insert_operand (unsigned, const struct arc_operand *, offsetT, char *, unsigned);
+
 
 /* Parse the arguments to an opcode. */
 static int
@@ -368,6 +386,9 @@ md_begin (void)
 {
   unsigned int i;
 
+  /* The endianness can be chosen "at the factory".  */
+  target_big_endian = byte_order == BIG_ENDIAN;
+
   /* Set up a hash table for the instructions.  */
   arc_opcode_hash = hash_new ();
   if (arc_opcode_hash == NULL)
@@ -389,7 +410,17 @@ md_begin (void)
 		 || !strcmp (arc_opcodes[i].name, name)))
 	continue;
     }
+
   /* Construct symbols for each of the registers.  */
+  for (i = 0; i < 32; ++i)
+    {
+      char name[4];
+
+      sprintf (name, "r%d", i);
+      arc_register_table[i] = symbol_create (name, reg_section, i,
+					     &zero_address_frag);
+    }
+
   /* TBD */
 }
 
@@ -402,6 +433,10 @@ md_number_to_chars (char *buf,
 		    valueT val,
 		    int n)
 {
+  if (target_big_endian)
+    number_to_chars_bigendian (buf, val, n);
+  else
+    number_to_chars_littleendian (buf, val, n);
 }
 
 /* Round up a section size to the appropriate boundary.  */
@@ -463,8 +498,31 @@ md_convert_frag (bfd *abfd ATTRIBUTE_UNUSED,
    We could catch register names here, but that is handled by inserting
    them all in the symbol table to begin with.  */
 symbolS *
-md_undefined_symbol (char *name ATTRIBUTE_UNUSED)
+md_undefined_symbol (char *name)
 {
+  int num;
+
+  if (*name != 'r')
+    return NULL;
+
+  switch (*++name)
+    {
+    case '0': case '1': case '2': case '3': case '4':
+    case '5': case '6': case '7': case '8': case '9':
+      if (name[1] == '\0')
+	num = name[0] - '0';
+      else if (name[0] != '0' && ISDIGIT (name[1]) && name[2] == '\0')
+	{
+	  num = (name[0] - '0') * 10 + name[1] - '0';
+	  if (num >= 32)
+	    break;
+	}
+      else
+	break;
+
+      return arc_register_table[num];
+    }
+  return NULL;
 }
 
 char *
@@ -574,7 +632,17 @@ find_opcode_match (const struct arc_opcode *first_opcode,
 	    }
 
 	  /* Match operand type with expression type.  */
-	  /* TBD */
+	  switch (operand->flags & ARC_OPERAND_TYPECHECK_MASK)
+	    {
+	    case ARC_OPERAND_IR:
+	      if (tok[tokidx].X_op != O_register
+		  || !is_ir_num (tok[tokidx].X_add_number))
+		goto match_failed;
+	      break;
+	    default:
+	      /* Everything else should have been fake.  */
+	      abort ();
+	    }
 
 	  ++tokidx;
 	}
@@ -606,12 +674,69 @@ assemble_insn (const struct arc_opcode *opcode,
 	       struct arc_insn *insn,
 	       extended_bfd_reloc_code_real_type reloc)
 {
+  const struct arc_operand *reloc_operand = NULL;
+  const expressionS *reloc_exp = NULL;
+  unsigned image;
+  const unsigned char *argidx;
+  int tokidx = 0;
+
+  memset (insn, 0, sizeof (*insn));
+  image = opcode->opcode;
+
+  for (argidx = opcode->operands; *argidx; ++argidx)
+    {
+      const struct arc_operand *operand = &arc_operands[*argidx];
+      const expressionS *t = (const expressionS *) 0;
+
+      if (tokidx >= ntok)
+	{
+	  abort();
+	}
+      else
+	t = &tok[tokidx++];
+
+      switch (t->X_op)
+	{
+	case O_register:
+	  image = insert_operand (image, operand, regno (t->X_add_number),
+				  NULL, 0);
+	  break;
+
+	case O_constant:
+	  image = insert_operand (image, operand, t->X_add_number, NULL, 0);
+	  gas_assert (reloc_operand == NULL);
+	  reloc_operand = operand;
+	  reloc_exp = t;
+	  break;
+
+	default:
+	  break;
+	}
+    }
+
+  /* Short instruction? */
+  insn->short_insn = (opcode->mask & 0xFFFF0000) ? 0 : 1;
+
+  insn->insn = image;
 }
 
 /* Actually output an instruction with its fixup.  */
 static void
 emit_insn (struct arc_insn *insn)
 {
+  char *f;
+
+  /* Write out the instruction.  */
+  if (insn->short_insn)
+    {
+      f = frag_more (2);
+      md_number_to_chars (f, insn->insn, 2);
+    }
+  else
+    {
+      f = frag_more (4);
+      md_number_to_chars (f, insn->insn, 4);
+    }
 }
 
 /* Insert an operand value into an instruction.  */
@@ -627,7 +752,6 @@ insert_operand (unsigned insn,
       offsetT min, max;
 
       /*FIXME*/
-#define ARC_OPERAND_SIGNED 0x00
       if (operand->flags & ARC_OPERAND_SIGNED)
 	{
 	  max = (1 << (operand->bits - 1)) - 1;

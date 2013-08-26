@@ -134,6 +134,22 @@ extern const unsigned arc_num_operands;
    argument.  */
 #define ARC_OPERAND_FAKE	01
 
+/* This operand names an integer register.  */
+#define ARC_OPERAND_IR		02
+
+/* This operand takes signed values.  */
+#define ARC_OPERAND_SIGNED	04
+
+/* This operand takes unsigned values.  This exists primarily so that
+   a flags value of 0 can be treated as end-of-arguments.  */
+#define ARC_OPERAND_UNSIGNED	010
+
+/* Mask for selecting the type for typecheck purposes */
+#define ARC_OPERAND_TYPECHECK_MASK					\
+  (ARC_OPERAND_IR |		\
+   ARC_OPERAND_SIGNED | 	\
+   ARC_OPERAND_UNSIGNED)
+
 /* Mask for optional argument default value.  */
 #define ARC_OPERAND_OPTIONAL_MASK 07000
 
