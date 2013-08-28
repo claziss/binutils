@@ -26,7 +26,7 @@
 /* The opcode table is an array of struct arc_opcode.  */
 struct arc_opcode
 {
-  /* The opcode name.  */
+  /* The opcode name. */
   const char *name;
 
   /* The opcode itself.  Those bits which will be filled in with
@@ -66,20 +66,20 @@ extern const unsigned arc_num_opcodes;
 #define ARC_OPCODE_ARCv1   0x0002  /* ARCv1 specific insns.  */
 #define ARC_OPCODE_ARCv2   0x0004  /* ARCv2 specific insns.  */
 
-/* The operands table is an array of struct alpha_operand.  */
+/* The operands table is an array of struct arc_operand.  */
 struct arc_operand
 {
   /* The number of bits in the operand.  */
-  unsigned int bits : 5;
+  unsigned int bits;
 
   /* How far the operand is left shifted in the instruction.  */
-  unsigned int shift : 5;
+  unsigned int shift;
 
   /* The default relocation type for this operand.  */
-  signed int default_reloc : 16;
+  signed int default_reloc;
 
   /* One bit syntax flags.  */
-  unsigned int flags : 16;
+  unsigned int flags;
 
   /* Insertion function.  This is used by the assembler.  To insert an
      operand value into an instruction, check this field.
@@ -120,7 +120,7 @@ struct arc_operand
 };
 
 /* Elements in the table are retrieved by indexing with values from
-   the operands field of the alpha_opcodes table.  */
+   the operands field of the arc_opcodes table.  */
 extern const struct arc_operand arc_operands[];
 extern const unsigned arc_num_operands;
 
@@ -152,5 +152,37 @@ extern const unsigned arc_num_operands;
 
 /* Mask for optional argument default value.  */
 #define ARC_OPERAND_OPTIONAL_MASK 07000
+
+/* The flags structure  */
+struct arc_flag_operand
+{
+  /* The flag name. */
+  const char *name;
+
+  /* The flag code. */
+  unsigned code;
+
+  /* The number of bits in the operand.  */
+  unsigned int bits;
+
+  /* How far the operand is left shifted in the instruction.  */
+  unsigned int shift;
+};
+
+/* The flag operands table. */
+extern const struct arc_flag_operand arc_flag_operands[];
+extern const unsigned arc_num_flag_operands;
+
+/* The flag's class structure. */
+struct arc_flag_class
+{
+  /* Size of the list. */
+  unsigned size;
+
+  /* List of valid flags (codes). */
+  unsigned flags[256];
+};
+
+extern const struct arc_flag_class arc_flag_classes[];
 
 #endif /* OPCODE_ARC_H */

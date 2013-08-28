@@ -136,7 +136,11 @@ cpu_types[] =
 
 struct arc_flags
 {
+  /* Name of the parsed flag*/
   char name[MAX_FLAG_NAME_LENGHT];
+
+  /* The code of the parsed flag. Valid when is not zero. */
+  unsigned char code;
 };
 
 /* A table of the register symbols.  */
@@ -146,9 +150,9 @@ static symbolS *arc_register_table[64];
 /* Functions implementation                                               */
 /**************************************************************************/
 
-static void assemble_tokens (const char *, const expressionS *, int, const struct arc_flags *, int);
-static const struct arc_opcode *find_opcode_match (const struct arc_opcode *, const expressionS *,
-						   int *, int *);
+static void assemble_tokens (const char *, const expressionS *, int, struct arc_flags *, int);
+static const struct arc_opcode *find_opcode_match (const struct arc_opcode *, const expressionS *, int *,
+						   struct arc_flags *, int, int *);
 static void assemble_insn (const struct arc_opcode *, const expressionS *,int, const struct arc_flags *, int,
 			   struct arc_insn *, extended_bfd_reloc_code_real_type);
 static void emit_insn (struct arc_insn *);
@@ -226,50 +230,6 @@ tokenize_arguments (char *str,
   input_line_pointer = old_input_line_pointer;
   return -1;
 }
-
-#if 0
-/*Returns the opcode of an input string, if it exists. The isa DB should be ordered*/
-static arc_opcode
-arc_opcode_lookup (arc_isa isa,
-		   const char *opname)
-{
-  ext_opcode = arc_ext_opcodes;
-  std_opcode = arc_opcode_lookup_asm (opname);
-  if (debug_file)
-    fprintf(debug_file, "Matching %s\n", opname);
-
-  /*Keep looking until we find a match.*/
-  start=opname;
-  for (opcode = (ext_opcode ? ext_opcode : std_opcode) ;
-       opcode != NULL;
-       opcode = (ARC_OPCODE_NEXT_ASM (opcode)
-		 ? ARC_OPCODE_NEXT_ASM (opcode)
-		 : (ext_opcode ? ext_opcode = NULL, std_opcode : NULL)))
-    {
-      /* Is this opcode supported by the selected cpu?  */
-      if (!arc_opcode_supported (opcode))
-	continue;
-
-      arc_opcode_init_insert ();
-      if (debug_file)
-	fprintf(debug_file, "Trying syntax %s\n", opcode->syntax);
-
-      for (str = start, syn = opcode->syntax; *syn != '\0';)
-	{
-	  const struct arc_operand *operand;
-
-	}
-    }
-
-  if (!result)
-    {
-      as_bad(_("opcode \"%s\" not recognized", opname));
-      return NULL;
-    }
-
-  return result->u.opcode;
-}
-#endif
 
 /* Parse the flags to a structure */
 static int
@@ -557,7 +517,7 @@ static void
 assemble_tokens (const char *opname,
 		 const expressionS *tok,
 		 int ntok,
-		 const struct arc_flags *pflags,
+		 struct arc_flags *pflags,
 		 int nflgs)
 {
   int found_something = 0;
@@ -570,7 +530,7 @@ assemble_tokens (const char *opname,
   if (opcode)
     {
       found_something = 1;
-      opcode = find_opcode_match (opcode, tok, &ntok, &cpumatch);
+      opcode = find_opcode_match (opcode, tok, &ntok, pflags, nflgs, &cpumatch);
       if (opcode)
 	{
 	  struct arc_insn insn;
@@ -603,6 +563,8 @@ static const struct arc_opcode *
 find_opcode_match (const struct arc_opcode *first_opcode,
 		   const expressionS *tok,
 		   int *pntok,
+		   struct arc_flags *first_pflag,
+		   int nflgs,
 		   int *pcpumatch)
 {
   const struct arc_opcode *opcode = first_opcode;
@@ -612,6 +574,7 @@ find_opcode_match (const struct arc_opcode *first_opcode,
   do
     {
       const unsigned char *opidx;
+      const unsigned char *flgidx;
       int tokidx = 0;
 
       /* Don't match opcodes that don't exist on this architecture.  */
@@ -620,6 +583,7 @@ find_opcode_match (const struct arc_opcode *first_opcode,
 
       got_cpu_match = 1;
 
+      /* Check the operands. */
       for (opidx = opcode->operands; *opidx; ++opidx)
 	{
 	  const struct arc_operand *operand = &arc_operands[*opidx];
@@ -651,6 +615,35 @@ find_opcode_match (const struct arc_opcode *first_opcode,
 
 	  ++tokidx;
 	}
+
+      /* Check the flags. Iterate over the valid flag classes. */
+      int lnflg = nflgs;
+      struct arc_flags *pflag = first_pflag;
+
+      for (flgidx = opcode->flags; *flgidx && lnflg; ++flgidx)
+	{
+	  /* Get a valid flag class*/
+	  const struct arc_flag_class *cl_flags = &arc_flag_classes[*flgidx];
+	  const unsigned *flgopridx;
+
+	  for (flgopridx = cl_flags->flags; *flgopridx; ++flgopridx)
+	    {
+	      const struct arc_flag_operand *flg_operand = &arc_flag_operands[*flgopridx];
+
+	      /* Match against the parsed flags. */
+	      if (!strcmp (flg_operand->name, pflag->name))
+		{
+		  /*TODO: Check if it is duplicated. */
+		  pflag->code = *flgopridx;
+		  pflag++;
+		  lnflg--;
+		  break; /* goto next flag class and parsed flag. */
+		}
+	    }
+	}
+      /* Did I check all the parsed flags? */
+      if (lnflg)
+	goto match_failed;
 
       /* Possible match -- did we use all of our input?  */
       if (tokidx == ntok)
@@ -685,6 +678,7 @@ assemble_insn (const struct arc_opcode *opcode,
   const expressionS *reloc_exp = NULL;
   unsigned image;
   const unsigned char *argidx;
+  unsigned i;
   int tokidx = 0;
 
   memset (insn, 0, sizeof (*insn));
@@ -723,7 +717,12 @@ assemble_insn (const struct arc_opcode *opcode,
     }
 
   /* Handle flags. */
+  for (i = 0; i < nflg; i++)
+    {
+      const struct arc_flag_operand *flg_operand = &arc_flag_operands[pflags[i].code];
 
+      image |= (flg_operand->code & (1 << flg_operand->bits -1)) << flg_operand->shift;
+    }
 
   /* Short instruction? */
   insn->short_insn = (opcode->mask & 0xFFFF0000) ? 0 : 1;
