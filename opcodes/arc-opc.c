@@ -40,6 +40,15 @@ extract_rb (unsigned insn ATTRIBUTE_UNUSED,
   return 0;
 }
 
+/* Dummy insert LIMM function. */
+static unsigned
+insert_limm (unsigned insn,
+	     int value ATTRIBUTE_UNUSED,
+	     const char **errmsg ATTRIBUTE_UNUSED)
+{
+  return insn;
+}
+
 
 /* Abbreviations for instruction subsets.  */
 #define BASE			ARC_OPCODE_BASE
@@ -234,19 +243,31 @@ const struct arc_operand arc_operands[] =
     /* The zero index is used to indicate end-of-list */
 #define UNUSED		0
     { 0, 0, 0, 0, 0, 0 },
-  /* The plain integer register fields.  */
+    /* The plain integer register fields. */
 #define RA		(UNUSED + 1)
     { 6, 0, 0, ARC_OPERAND_IR, 0, 0 },
 #define RB		(RA + 1)
     { 6, 12, 0, ARC_OPERAND_IR, insert_rb, extract_rb },
 #define RC		(RB + 1)
     { 6, 6, 0, ARC_OPERAND_IR, 0, 0 },
+#define RBdup 		(RC + 1)
+    { 6, 12, 0, ARC_OPERAND_IR | ARC_OPERAND_DUPLICATE, insert_rb, extract_rb },
+
+    /* Long immediate. */
+#define LIMM 		(RBdup + 1)
+    { 32, 0, 0, ARC_OPERAND_LIMM, insert_limm, 0 },
+#define LIMMdup		(LIMM + 1)
+    { 32, 0, 0, ARC_OPERAND_LIMM | ARC_OPERAND_DUPLICATE, insert_limm, 0 },
   };
 const unsigned arc_num_operands = sizeof(arc_operands)/sizeof(*arc_operands);
 
 /* Common combinations of arguments.  */
 #define ARG_NONE                { 0 }
 #define ARG_32BIT_RARBRC        { RA, RB, RC }
+#define ARG_32BIT_RALIMMRC      { RA, LIMM, RC }
+#define ARG_32BIT_RARBLIMM      { RA, RB, LIMM }
+#define ARG_32BIT_RALIMMLIMM    { RA, LIMM, LIMMdup }
+#define ARG_32BIT_RBRBRC        { RB, RBdup, RC }
 
 /* The opcode table.
 
@@ -257,6 +278,10 @@ const unsigned arc_num_operands = sizeof(arc_operands)/sizeof(*arc_operands);
 const struct arc_opcode arc_opcodes[] =
   {
     { "add", 0x20000000, 0xF8FF0000, BASE, ARG_32BIT_RARBRC, FLAGS_F },
+    { "add", 0x26007000, 0xFFFF7000, BASE, ARG_32BIT_RALIMMRC, FLAGS_F },
+    { "add", 0x20000F80, 0xF8FF0FC0, BASE, ARG_32BIT_RARBLIMM, FLAGS_F },
+    { "add", 0x26007F80, 0xFFFF7FC0, BASE, ARG_32BIT_RALIMMLIMM, FLAGS_F },
+    { "add", 0x20C00000, 0xF8FF0000, BASE, ARG_32BIT_RBRBRC, FLAGS_CCF },
     { "nop", 0x264A7000, 0xFFFFFFFF, BASE, ARG_NONE, FLAGS_NONE },
     { "nop_s", 0x78E0, 0xFFFF, BASE, ARG_NONE, FLAGS_NONE }
   };

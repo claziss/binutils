@@ -144,10 +144,16 @@ extern const unsigned arc_num_operands;
    a flags value of 0 can be treated as end-of-arguments.  */
 #define ARC_OPERAND_UNSIGNED	010
 
+/* This operand takes long immediate values. */
+#define ARC_OPERAND_LIMM	020
+
+/* This operand is identical like the previous one. */
+#define ARC_OPERAND_DUPLICATE   0100
+
 /* Mask for selecting the type for typecheck purposes */
 #define ARC_OPERAND_TYPECHECK_MASK					\
   (ARC_OPERAND_IR |		\
-   ARC_OPERAND_SIGNED | 	\
+   ARC_OPERAND_LIMM | ARC_OPERAND_SIGNED | 	\
    ARC_OPERAND_UNSIGNED)
 
 /* Mask for optional argument default value.  */

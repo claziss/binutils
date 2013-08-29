@@ -110,6 +110,7 @@ struct arc_insn
   int nfixups;
   struct arc_fixup fixups[MAX_INSN_FIXUPS];
   long sequence;
+  long limm;
   unsigned char short_insn;
 };
 
@@ -548,13 +549,13 @@ assemble_tokens (const char *opname,
   if (found_something)
     {
       if (cpumatch)
-	as_bad (_("inappropriate arguments for opcode `%s'"), opname);
+	as_bad (_("inappropriate arguments for opcode '%s'"), opname);
       else
-	as_bad (_("opcode `%s' not supported for target %s"), opname,
+	as_bad (_("opcode '%s' not supported for target %s"), opname,
 		arc_target_name);
     }
   else
-    as_bad (_("unknown opcode `%s'"), opname);
+    as_bad (_("unknown opcode '%s'"), opname);
 }
 
 /* Search forward through all variants of an opcode looking for a
@@ -576,6 +577,7 @@ find_opcode_match (const struct arc_opcode *first_opcode,
       const unsigned char *opidx;
       const unsigned char *flgidx;
       int tokidx = 0;
+      const expressionS *t;
 
       /* Don't match opcodes that don't exist on this architecture.  */
       if (!(opcode->cpu & arc_target))
@@ -595,9 +597,7 @@ find_opcode_match (const struct arc_opcode *first_opcode,
 	  /* When we expect input, make sure we have it.  */
 	  if (tokidx >= ntok)
 	    {
-	      if ((operand->flags & ARC_OPERAND_OPTIONAL_MASK) == 0)
-		goto match_failed;
-	      continue;
+	      abort ();
 	    }
 
 	  /* Match operand type with expression type.  */
@@ -607,7 +607,42 @@ find_opcode_match (const struct arc_opcode *first_opcode,
 	      if (tok[tokidx].X_op != O_register
 		  || !is_ir_num (tok[tokidx].X_add_number))
 		goto match_failed;
+	      if (operand->flags & ARC_OPERAND_DUPLICATE)
+		{
+		  /* check for duplicate. */
+		  if (t->X_op != O_register
+		      || !is_ir_num (t->X_add_number)
+		      || (regno (t->X_add_number) !=
+			  regno (tok[tokidx].X_add_number)))
+		    goto match_failed;
+		}
+	      t = &tok[tokidx];
 	      break;
+
+	    case ARC_OPERAND_LIMM:
+	    case ARC_OPERAND_SIGNED:
+	    case ARC_OPERAND_UNSIGNED:
+	      switch (tok[tokidx].X_op)
+		{
+		case O_illegal:
+		case O_absent:
+		case O_register:
+		  goto match_failed;
+		default:
+		  break;
+		}
+	      if (operand->flags & ARC_OPERAND_DUPLICATE)
+		{
+		  /* check for duplicate. */
+		  if (t->X_op == O_illegal
+		      || t->X_op == O_absent
+		      || t->X_op == O_register
+		      || (t->X_add_number != tok[tokidx].X_add_number))
+		    goto match_failed;
+		}
+	      t = &tok[tokidx];
+	      break;
+
 	    default:
 	      /* Everything else should have been fake.  */
 	      abort ();
@@ -690,6 +725,12 @@ assemble_insn (const struct arc_opcode *opcode,
       const struct arc_operand *operand = &arc_operands[*argidx];
       const expressionS *t = (const expressionS *) 0;
 
+      if (operand->flags & ARC_OPERAND_DUPLICATE)
+	{
+	  /* Duplicate operand, already inserted. */
+	  continue;
+	}
+
       if (tokidx >= ntok)
 	{
 	  abort();
@@ -709,6 +750,10 @@ assemble_insn (const struct arc_opcode *opcode,
 	  gas_assert (reloc_operand == NULL);
 	  reloc_operand = operand;
 	  reloc_exp = t;
+	  if (operand->flags & ARC_OPERAND_LIMM)
+	    insn->limm = t->X_add_number;
+	  else
+	    insn->limm = 0;
 	  break;
 
 	default:
@@ -721,7 +766,7 @@ assemble_insn (const struct arc_opcode *opcode,
     {
       const struct arc_flag_operand *flg_operand = &arc_flag_operands[pflags[i].code];
 
-      image |= (flg_operand->code & (1 << flg_operand->bits -1)) << flg_operand->shift;
+      image |= (flg_operand->code & ((1 << flg_operand->bits) - 1)) << flg_operand->shift;
     }
 
   /* Short instruction? */
@@ -739,13 +784,35 @@ emit_insn (struct arc_insn *insn)
   /* Write out the instruction.  */
   if (insn->short_insn)
     {
-      f = frag_more (2);
-      md_number_to_chars (f, insn->insn, 2);
+      if (insn->limm)
+	{
+	  f = frag_more (6);
+	  md_number_to_chars (f, insn->insn, 2);
+	  md_number_to_chars (f + 2, insn->limm, 4);
+	  dwarf2_emit_insn (6);
+	}
+      else
+	{
+	  f = frag_more (2);
+	  md_number_to_chars (f, insn->insn, 2);
+	  dwarf2_emit_insn (2);
+	}
     }
   else
     {
-      f = frag_more (4);
-      md_number_to_chars (f, insn->insn, 4);
+      if (insn->limm)
+	{
+	  f = frag_more (8);
+	  md_number_to_chars (f, insn->insn, 4);
+	  md_number_to_chars (f + 4, insn->limm, 4);
+	  dwarf2_emit_insn (8);
+	}
+      else
+	{
+	  f = frag_more (4);
+	  md_number_to_chars (f, insn->insn, 4);
+	  dwarf2_emit_insn (4);
+	}
     }
 }
 
