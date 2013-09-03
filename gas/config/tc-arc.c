@@ -616,6 +616,15 @@ find_opcode_match (const struct arc_opcode *first_opcode,
 			  regno (tok[tokidx].X_add_number)))
 		    goto match_failed;
 		}
+	      if (operand->insert)
+		{
+		  const char *errmsg = NULL;
+		  (*operand->insert)(NULL,
+				     regno (tok[tokidx].X_add_number),
+				     &errmsg);
+		  if (errmsg)
+		    goto match_failed;
+		}
 	      t = &tok[tokidx];
 	      break;
 

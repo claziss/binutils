@@ -49,6 +49,17 @@ insert_limm (unsigned insn,
   return insn;
 }
 
+/* Dummy insert ZERO operand function. */
+static unsigned
+insert_za (unsigned insn,
+	     int value,
+	     const char **errmsg)
+{
+  if (value)
+    *errmsg = _("operand is not zero");
+  return insn;
+}
+
 
 /* Abbreviations for instruction subsets.  */
 #define BASE			ARC_OPCODE_BASE
@@ -258,6 +269,10 @@ const struct arc_operand arc_operands[] =
     { 32, 0, 0, ARC_OPERAND_LIMM, insert_limm, 0 },
 #define LIMMdup		(LIMM + 1)
     { 32, 0, 0, ARC_OPERAND_LIMM | ARC_OPERAND_DUPLICATE, insert_limm, 0 },
+
+    /* Special operands. */
+#define ZA              (LIMMdup + 1)
+    { 0, 0, 0, ARC_OPERAND_UNSIGNED, insert_za, 0 },
   };
 const unsigned arc_num_operands = sizeof(arc_operands)/sizeof(*arc_operands);
 
@@ -268,6 +283,7 @@ const unsigned arc_num_operands = sizeof(arc_operands)/sizeof(*arc_operands);
 #define ARG_32BIT_RARBLIMM      { RA, RB, LIMM }
 #define ARG_32BIT_RALIMMLIMM    { RA, LIMM, LIMMdup }
 #define ARG_32BIT_RBRBRC        { RB, RBdup, RC }
+#define ARG_32BIT_ZARBRC        { ZA, RB, RC }
 
 /* The opcode table.
 
@@ -278,6 +294,7 @@ const unsigned arc_num_operands = sizeof(arc_operands)/sizeof(*arc_operands);
 const struct arc_opcode arc_opcodes[] =
   {
     { "add", 0x20000000, 0xF8FF0000, BASE, ARG_32BIT_RARBRC, FLAGS_F },
+    { "add", 0x2000003E, 0xF8FF003F, BASE, ARG_32BIT_ZARBRC, FLAGS_F },
     { "add", 0x26007000, 0xFFFF7000, BASE, ARG_32BIT_RALIMMRC, FLAGS_F },
     { "add", 0x20000F80, 0xF8FF0FC0, BASE, ARG_32BIT_RARBLIMM, FLAGS_F },
     { "add", 0x26007F80, 0xFFFF7FC0, BASE, ARG_32BIT_RALIMMLIMM, FLAGS_F },
