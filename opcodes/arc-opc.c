@@ -52,14 +52,44 @@ insert_limm (unsigned insn,
 /* Dummy insert ZERO operand function. */
 static unsigned
 insert_za (unsigned insn,
-	     int value,
-	     const char **errmsg)
+	   int value,
+	   const char **errmsg)
 {
   if (value)
     *errmsg = _("operand is not zero");
   return insn;
 }
 
+/* Insert bbit's s9 immediate operand function. */
+static unsigned
+insert_bbs9 (unsigned insn,
+	     int value,
+	     const char **errmsg)
+{
+  if (value % 2)
+    *errmsg = _("The target address must 2-byte aligned");
+
+  /* Insert least significant 7-bits.  */
+  insn |= ((value >> 1) & 0x7f) << 17;
+  /* Insert most significant bit.  */
+  insn |= (((value >> 1) & 0x80) >> 7) << 15;
+  return insn;
+}
+
+/* Insert Y-bit in bbit instructions. This function is called only
+   when solving fixups. */
+static unsigned
+insert_Ybit (unsigned insn,
+	     int value,
+	     const char **errmsg)
+{
+  if (!value)
+    *errmsg = _("cannot resolve this fixup.");
+  else if (value < 0)
+    insn |= 0x08;
+
+  return insn;
+}
 
 /* Abbreviations for instruction subsets.  */
 #define BASE			ARC_OPCODE_BASE
@@ -196,9 +226,9 @@ const struct arc_flag_operand arc_flag_operands[] =
 
     /*ARCv2 specific*/
 #define F_NT     (F_DI15 + 1)
-    { "nt", 0, 1, 0},
+    { "nt", 0, 1, 3},
 #define F_T      (F_NT + 1)
-    { "t", 1, 1, 0},
+    { "t", 1, 1, 3},
 #define F_H1     (F_T + 1)
     { "h", 2, 2, 1 },
 #define F_H7     (F_H1 + 1)
@@ -234,6 +264,10 @@ const struct arc_flag_class arc_flag_classes[] =
 #define C_F         (C_AA_ADDR22 + 1)
     { 0, { F_FLAG, F_NULL } },
 
+#define C_T         (C_F + 1)
+    { 0, { F_NT, F_T } },
+#define C_D         (C_T + 1)
+    { 0, { F_ND, F_D } },
   };
 
 /* Common combinations of FLAGS.  */
@@ -273,8 +307,17 @@ const struct arc_operand arc_operands[] =
     /* Special operands. */
 #define ZA              (LIMMdup + 1)
     { 0, 0, 0, ARC_OPERAND_UNSIGNED, insert_za, 0 },
+
+    /* The signed "9-bit" immediate used for bbit instructions. */
+#define BBS9            (ZA + 1)
+    { 8, 17, 0, ARC_OPERAND_SIGNED, insert_bbs9, 0 },
+    /* Fake operand to handle the T flag. */
+#define FKT             (BBS9 + 1)
+    { 1, 3, 0, ARC_OPERAND_FAKE, insert_Ybit, 0},
   };
 const unsigned arc_num_operands = sizeof(arc_operands)/sizeof(*arc_operands);
+
+const unsigned arc_fake_idx_Toperand = FKT;
 
 /* Common combinations of arguments.  */
 #define ARG_NONE                { 0 }
@@ -300,7 +343,8 @@ const struct arc_opcode arc_opcodes[] =
     { "add", 0x26007F80, 0xFFFF7FC0, BASE, ARG_32BIT_RALIMMLIMM, FLAGS_F },
     { "add", 0x20C00000, 0xF8FF0000, BASE, ARG_32BIT_RBRBRC, FLAGS_CCF },
     { "nop", 0x264A7000, 0xFFFFFFFF, BASE, ARG_NONE, FLAGS_NONE },
-    { "nop_s", 0x78E0, 0xFFFF, BASE, ARG_NONE, FLAGS_NONE }
+    { "nop_s", 0x78E0, 0xFFFF, BASE, ARG_NONE, FLAGS_NONE },
+    { "bbit0", 0x8010006, 0xF8010017, BASE, { RB, RC, BBS9 }, { C_T, C_D } },
   };
 
 const unsigned arc_num_opcodes = sizeof(arc_opcodes)/sizeof(*arc_opcodes);
