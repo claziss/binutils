@@ -800,6 +800,31 @@ assemble_insn (const struct arc_opcode *opcode,
 	  break;
 
 	default:
+	  /* This operand needs a relocation. */
+	  if (reloc == BFD_RELOC_UNUSED)
+	    reloc = operand->default_reloc;
+
+	  gas_assert (reloc_operand == NULL);
+	  reloc_operand = operand;
+	  reloc_exp = t;
+
+	  /* sanity checks */
+	  reloc_howto_type *reloc_howto
+	    = bfd_reloc_type_lookup (stdoutput,
+				     (bfd_reloc_code_real_type) reloc);
+	  if (reloc_howto->bitsize != operand->bits)
+	    {
+	      as_bad (_("invalid relocation for field"));
+	      return;
+	    }
+
+	  if (insn->nfixups >= MAX_INSN_FIXUPS)
+	    as_fatal (_("too many fixups"));
+
+	  struct arc_fixup *fixup;
+	  fixup = &insn->fixups[insn->nfixups++];
+	  fixup->exp = *t;
+	  fixup->reloc = reloc;
 	  break;
 	}
     }
