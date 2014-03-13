@@ -29,10 +29,7 @@
 #include "safe-ctype.h"
 
 #include "opcode/arc.h"
-
-#ifdef OBJ_ELF
 #include "elf/arc.h"
-#endif
 
 /**************************************************************************/
 /* Defines                                                                */
@@ -431,16 +428,27 @@ md_apply_fix (fixS *fixP, valueT *valP, segT seg)
 {
   char * const fixpos = fixP->fx_frag->fr_literal + fixP->fx_where;
   valueT value = *valP;
-  unsigned insn;
+  unsigned insn = 0;
 
   switch (fixP->fx_r_type)
     {
-    default:
+    case BFD_RELOC_ARC_32_ME:
+      if (fixP->fx_pcrel)
+	{
+	  fixP->fx_r_type = BFD_RELOC_ARC_PC32;
+	}
+      else
+	{
+	  fixP->fx_done = 1;
+	  insn = value;
+	}
+      break;
+     default:
       {
 	const struct arc_operand *operand;
 
 	if ((int) fixP->fx_r_type >= 0)
-	  as_fatal (_("unhandled reloation type %s"),
+	  as_fatal (_("unhandled relocation type %s"),
 		    bfd_get_reloc_code_name (fixP->fx_r_type));
 
 	gas_assert (-(int) fixP->fx_r_type < (int) arc_num_operands);
@@ -456,11 +464,11 @@ md_apply_fix (fixS *fixP, valueT *valP, segT seg)
 	insn = bfd_getb32 (fixpos); //FIXME: endianess
 	insn = insert_operand (insn, operand, (offsetT) value,
 			       fixP->fx_file, fixP->fx_line);
+	fixP->fx_done = 1;
       }
     }
 
   md_number_to_chars (fixpos, insn, fixP->fx_size);
-  fixP->fx_done = 1;
 }
 
 int
@@ -477,6 +485,35 @@ arelent *
 tc_gen_reloc (asection *section ATTRIBUTE_UNUSED,
 	      fixS *fixP)
 {
+  arelent *reloc;
+
+  reloc = (arelent *) xmalloc (sizeof (* reloc));
+  reloc->sym_ptr_ptr = (asymbol **) xmalloc (sizeof (asymbol *));
+  *reloc->sym_ptr_ptr = symbol_get_bfdsym (fixP->fx_addsy);
+  reloc->address = fixP->fx_frag->fr_address + fixP->fx_where;
+
+  /* Make sure none of our internal relocations make it this far.
+     They'd better have been fully resolved by this point.  */
+  gas_assert ((int) fixP->fx_r_type > 0);
+
+  reloc->howto = bfd_reloc_type_lookup (stdoutput, fixP->fx_r_type);
+  if (reloc->howto == NULL)
+    {
+      as_bad_where (fixP->fx_file, fixP->fx_line,
+		    _("cannot represent `%s' relocation in object file"),
+		    bfd_get_reloc_code_name (fixP->fx_r_type));
+      return NULL;
+    }
+
+  if (!fixP->fx_pcrel != !reloc->howto->pc_relative)
+    as_fatal (_("internal error? cannot generate `%s' relocation"),
+	      bfd_get_reloc_code_name (fixP->fx_r_type));
+
+  gas_assert (!fixP->fx_pcrel == !reloc->howto->pc_relative);
+
+  reloc->addend = fixP->fx_offset;
+
+  return reloc;
 }
 
 /* Convert a machine dependent frag.  We never generate these.  */
@@ -781,6 +818,11 @@ assemble_insn (const struct arc_opcode *opcode,
       else
 	t = &tok[tokidx++];
 
+      /* Regardless if we have a reloc or not mark the instruction
+	 limm if it is the case. */
+      if (operand->flags & ARC_OPERAND_LIMM)
+	insn->limm = 1;
+
       switch (t->X_op)
 	{
 	case O_register:
@@ -863,7 +905,7 @@ static void
 emit_insn (struct arc_insn *insn)
 {
   char *f;
-  int i;
+  int i, offset = 0;
 
   /* Write out the instruction.  */
   if (insn->short_insn)
@@ -873,6 +915,7 @@ emit_insn (struct arc_insn *insn)
 	  f = frag_more (6);
 	  md_number_to_chars (f, insn->insn, 2);
 	  md_number_to_chars (f + 2, insn->limm, 4);
+	  offset = 2;
 	  dwarf2_emit_insn (6);
 	}
       else
@@ -889,6 +932,7 @@ emit_insn (struct arc_insn *insn)
 	  f = frag_more (8);
 	  md_number_to_chars (f, insn->insn, 4);
 	  md_number_to_chars (f + 4, insn->limm, 4);
+	  offset = 4;
 	  dwarf2_emit_insn (8);
 	}
       else
@@ -912,7 +956,17 @@ emit_insn (struct arc_insn *insn)
 	  size = 4;
 	  pcrel = 0;
 	}
-      fixP = fix_new_exp (frag_now, f - frag_now->fr_literal,
+      else
+	{
+	  reloc_howto_type *reloc_howto =
+	    bfd_reloc_type_lookup (stdoutput,
+				   (bfd_reloc_code_real_type) fixup->reloc);
+	  gas_assert (reloc_howto);
+
+	  size = bfd_get_reloc_size (reloc_howto);
+	  pcrel = reloc_howto->pc_relative;
+	}
+      fixP = fix_new_exp (frag_now, f - frag_now->fr_literal + offset,
 			  size, &fixup->exp, pcrel, fixup->reloc);
     }
 }

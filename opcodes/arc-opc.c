@@ -300,7 +300,7 @@ const struct arc_operand arc_operands[] =
 
     /* Long immediate. */
 #define LIMM 		(RBdup + 1)
-    { 32, 0, 0, ARC_OPERAND_LIMM, insert_limm, 0 },
+    { 32, 0, BFD_RELOC_ARC_32_ME, ARC_OPERAND_LIMM, insert_limm, 0 },
 #define LIMMdup		(LIMM + 1)
     { 32, 0, 0, ARC_OPERAND_LIMM | ARC_OPERAND_DUPLICATE, insert_limm, 0 },
 
