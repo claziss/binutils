@@ -416,6 +416,12 @@ md_section_align (segT segment,
 long
 md_pcrel_from (fixS *fixP)
 {
+  /* if this is not a defined symbol, let the linker handle it. */
+  if (fixP->fx_addsy != (symbolS *) NULL
+      && !S_IS_DEFINED (fixP->fx_addsy))
+    return 0;
+
+  return 0;
 }
 
 /* Apply a fixup to the object code. At this point all symbol values
@@ -561,6 +567,7 @@ md_atof (int type,
 	 char *litP,
 	 int *sizeP)
 {
+  return 0x00;
 }
 
 void
@@ -593,7 +600,7 @@ assemble_tokens (const char *opname,
   extended_bfd_reloc_code_real_type reloc = BFD_RELOC_UNUSED;
 
   /* Search opcodes. */
-  opcode = (const struct arc_opcodes *) hash_find (arc_opcode_hash, opname);
+  opcode = (const struct arc_opcode *) hash_find (arc_opcode_hash, opname);
   if (opcode)
     {
       found_something = 1;
@@ -793,7 +800,7 @@ assemble_insn (const struct arc_opcode *opcode,
   const expressionS *reloc_exp = NULL;
   unsigned image;
   const unsigned char *argidx;
-  unsigned i;
+  int i;
   int tokidx = 0;
 
   memset (insn, 0, sizeof (*insn));
