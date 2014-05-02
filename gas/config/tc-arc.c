@@ -416,12 +416,14 @@ md_section_align (segT segment,
 long
 md_pcrel_from (fixS *fixP)
 {
+  offsetT base = fixP->fx_where + fixP->fx_frag->fr_address;
+
   /* if this is not a defined symbol, let the linker handle it. */
   if (fixP->fx_addsy != (symbolS *) NULL
       && !S_IS_DEFINED (fixP->fx_addsy))
-    return 0;
+    base = 0;
 
-  return 0;
+  return base;
 }
 
 /* Apply a fixup to the object code. At this point all symbol values
@@ -575,6 +577,22 @@ md_operand (expressionS *expressionP)
 {
 }
 
+/* md_parse_option
+      Invocation line includes a switch not recognized by the base assembler.
+      See if it's a processor-specific option.
+
+      New options (supported) are:
+
+	      -mcpu=<cpu name>		 Assemble for selected processor
+	      -EB/-mbig-endian		 Big-endian
+	      -EL/-mlittle-endian	 Little-endian
+	      -k			 Generate PIC code
+
+	      -m[no-]warn-deprecated     Warn about deprecated features
+
+      The following CPU names are recognized:
+              arc700, av2em, av2hs.
+*/
 int
 md_parse_option (int c, char *arg)
 {
@@ -583,6 +601,14 @@ md_parse_option (int c, char *arg)
 void
 md_show_usage (FILE *stream)
 {
+  fprintf (stream, _("ARC-specific assembler options:\n"));
+
+  fprintf (stream, "  -mcpu=<cpu name>\t assemble for CPU <cpu name>\n");
+
+  fprintf (stream, _("\
+  -EB                     assemble code for a big-endian cpu\n"));
+  fprintf (stream, _("\
+  -EL                     assemble code for a little-endian cpu\n"));
 }
 
 /* Given an opcode name, pre-tockenized set of argumenst and the
