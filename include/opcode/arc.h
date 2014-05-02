@@ -151,9 +151,12 @@ extern const unsigned arc_fake_idx_Toperand;
 /* This operand is identical like the previous one. */
 #define ARC_OPERAND_DUPLICATE   0100
 
+/* This operand is PC relative. Used for internal relocs. */
+#define ARC_OPERAND_PCREL       0200
+
 /* Mask for selecting the type for typecheck purposes */
-#define ARC_OPERAND_TYPECHECK_MASK					\
-  (ARC_OPERAND_IR |		\
+#define ARC_OPERAND_TYPECHECK_MASK		\
+  (ARC_OPERAND_IR |				\
    ARC_OPERAND_LIMM | ARC_OPERAND_SIGNED | 	\
    ARC_OPERAND_UNSIGNED)
 

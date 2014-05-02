@@ -107,6 +107,9 @@ struct arc_fixup
 
   /* index into arc_operands */
   unsigned int opindex;
+
+  /*PC-relative, used by internals fixups. */
+  unsigned char pcrel;
 };
 
 struct arc_insn
@@ -432,11 +435,6 @@ md_pcrel_from_section (fixS *fixP, segT sec)
 
   pr_debug("pcrel_from_section, fx_offset = %d\n", fixP->fx_offset);
 
-  pr_debug("pcrel from %x + %lx, symbol: %s (%x)\n",
-	   fixP->fx_frag->fr_address, fixP->fx_where,
-	   fixP->fx_addsy ? S_GET_NAME (fixP->fx_addsy) : "(null)",
-	   fixP->fx_addsy ? S_GET_VALUE (fixP->fx_addsy) : 0);
-
   if (fixP->fx_addsy != (symbolS *) NULL
       && (!S_IS_DEFINED (fixP->fx_addsy)
 	  || S_GET_SEGMENT (fixP->fx_addsy) != sec))
@@ -447,6 +445,30 @@ md_pcrel_from_section (fixS *fixP, segT sec)
 	 Let the linker figure it out.  */
       base = 0;
     }
+
+  if ((int) fixP->fx_r_type < 0 )
+    {
+      /* these are the "internal" relocations. Align them to
+	 32 bit boundary (PCL), for the moment. */
+      base &= ~3;
+    }
+  else
+    {
+      switch (fixP->fx_r_type)
+	{
+	BFD_RELOC_ARC_PC32:
+	  /* this is a limm, it should not be 32bit align
+	   ... but probably it needs. */
+	  //base &= ~3;
+	default:
+	  break;
+	}
+    }
+
+  pr_debug ("pcrel from %x + %lx = %x, symbol: %s (%x)\n",
+	    fixP->fx_frag->fr_address, fixP->fx_where, base,
+	    fixP->fx_addsy ? S_GET_NAME (fixP->fx_addsy) : "(null)",
+	    fixP->fx_addsy ? S_GET_VALUE (fixP->fx_addsy) : 0);
 
   return base;
 }
@@ -654,7 +676,7 @@ md_operand (expressionS *expressionP ATTRIBUTE_UNUSED)
 	      -m[no-]warn-deprecated     Warn about deprecated features
 
       The following CPU names are recognized:
-              arc700, av2em, av2hs.
+	      arc700, av2em, av2hs.
 */
 int
 md_parse_option (int c ATTRIBUTE_UNUSED, char *arg ATTRIBUTE_UNUSED)
@@ -896,6 +918,7 @@ assemble_insn (const struct arc_opcode *opcode,
   const unsigned char *argidx;
   int i;
   int tokidx = 0;
+  unsigned char pcrel = 0;
 
   memset (insn, 0, sizeof (*insn));
   image = opcode->opcode;
@@ -970,6 +993,9 @@ assemble_insn (const struct arc_opcode *opcode,
 	  fixup = &insn->fixups[insn->nfixups++];
 	  fixup->exp = *t;
 	  fixup->reloc = reloc;
+	  pcrel = (operand->flags & ARC_OPERAND_PCREL) ?
+	    1 : 0;
+	  fixup->pcrel = pcrel;
 	  break;
 	}
     }
@@ -992,6 +1018,7 @@ assemble_insn (const struct arc_opcode *opcode,
 	  fixup = &insn->fixups[insn->nfixups++];
 	  fixup->exp = *reloc_exp;
 	  fixup->reloc = -arc_fake_idx_Toperand;
+	  fixup->pcrel = pcrel;
 	}
       else
 	image |= (flg_operand->code & ((1 << flg_operand->bits) - 1))
@@ -1062,7 +1089,8 @@ emit_insn (struct arc_insn *insn)
       if ((int) fixup->reloc < 0)
 	{
 	  size = 4;
-	  pcrel = 0;
+	  pcrel = fixup->pcrel;
+	  pr_debug ("PCrel :%d\n", fixup->pcrel);
 	}
       else
 	{

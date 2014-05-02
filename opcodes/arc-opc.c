@@ -67,7 +67,7 @@ insert_bbs9 (unsigned insn,
 	     const char **errmsg)
 {
   if (value % 2)
-    *errmsg = _("The target address must 2-byte aligned");
+    *errmsg = _("The target address must be 2-byte aligned");
 
   /* Insert least significant 7-bits.  */
   insn |= ((value >> 1) & 0x7f) << 17;
@@ -85,7 +85,7 @@ insert_Ybit (unsigned insn,
 {
   if (!value)
     *errmsg = _("cannot resolve this fixup.");
-  else if (value < 0)
+  else if (value > 0)
     insn |= 0x08;
 
   return insn;
@@ -310,7 +310,7 @@ const struct arc_operand arc_operands[] =
 
     /* The signed "9-bit" immediate used for bbit instructions. */
 #define BBS9            (ZA + 1)
-    { 8, 17, -BBS9, ARC_OPERAND_SIGNED, insert_bbs9, 0 },
+    { 8, 17, -BBS9, ARC_OPERAND_SIGNED | ARC_OPERAND_PCREL, insert_bbs9, 0 },
     /* Fake operand to handle the T flag. */
 #define FKT             (BBS9 + 1)
     { 1, 3, 0, ARC_OPERAND_FAKE, insert_Ybit, 0},
