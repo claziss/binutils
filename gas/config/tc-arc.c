@@ -40,6 +40,14 @@
 #define MAX_FLAG_NAME_LENGHT 3
 #define MAX_INSN_FIXUPS      2
 
+#define DEBUG
+
+#ifdef DEBUG
+# define pr_debug(fmt, args...) fprintf(stderr, fmt, ##args)
+#else
+# define pr_debug(fmt, args...)
+#endif
+
 /**************************************************************************/
 /* Macros                                                                 */
 /**************************************************************************/
@@ -148,14 +156,18 @@ static symbolS *arc_register_table[64];
 /* Functions implementation                                               */
 /**************************************************************************/
 
-static void assemble_tokens (const char *, const expressionS *, int, struct arc_flags *, int);
-static const struct arc_opcode *find_opcode_match (const struct arc_opcode *, const expressionS *, int *,
+static void assemble_tokens (const char *, const expressionS *, int,
+			     struct arc_flags *, int);
+static const struct arc_opcode *find_opcode_match (const struct arc_opcode *,
+						   const expressionS *, int *,
 						   struct arc_flags *, int, int *);
-static void assemble_insn (const struct arc_opcode *, const expressionS *,int, const struct arc_flags *, int,
+static void assemble_insn (const struct arc_opcode *, const expressionS *,
+			   int, const struct arc_flags *, int,
 			   struct arc_insn *, extended_bfd_reloc_code_real_type);
 static void emit_insn (struct arc_insn *);
 
-static unsigned insert_operand (unsigned, const struct arc_operand *, offsetT, char *, unsigned);
+static unsigned insert_operand (unsigned, const struct arc_operand *,
+				offsetT, char *, unsigned);
 
 
 /* Parse the arguments to an opcode. */
@@ -359,12 +371,12 @@ md_begin (void)
   /* Initialize the hash table with the insns */
   for (i = 0; i < arc_num_opcodes;)
     {
-      const char *name, *retval, *slash;
+      const char *name, *retval;
 
       name = arc_opcodes[i].name;
       retval = hash_insert (arc_opcode_hash, name, (void *) &arc_opcodes[i]);
       if (retval)
-	as_fatal (_("internal error: can't hash opcode `%s': %s"),
+	as_fatal (_("internal error: can't hash opcode '%s': %s"),
 		  name, retval);
 
       while (++i < arc_num_opcodes
@@ -414,14 +426,27 @@ md_section_align (segT segment,
 /* The location from which a PC relative jump should be calculated,
    given a PC relative reloc.  */
 long
-md_pcrel_from (fixS *fixP)
+md_pcrel_from_section (fixS *fixP, segT sec)
 {
   offsetT base = fixP->fx_where + fixP->fx_frag->fr_address;
 
-  /* if this is not a defined symbol, let the linker handle it. */
+  pr_debug("pcrel_from_section, fx_offset = %d\n", fixP->fx_offset);
+
+  pr_debug("pcrel from %x + %lx, symbol: %s (%x)\n",
+	   fixP->fx_frag->fr_address, fixP->fx_where,
+	   fixP->fx_addsy ? S_GET_NAME (fixP->fx_addsy) : "(null)",
+	   fixP->fx_addsy ? S_GET_VALUE (fixP->fx_addsy) : 0);
+
   if (fixP->fx_addsy != (symbolS *) NULL
-      && !S_IS_DEFINED (fixP->fx_addsy))
-    base = 0;
+      && (!S_IS_DEFINED (fixP->fx_addsy)
+	  || S_GET_SEGMENT (fixP->fx_addsy) != sec))
+    {
+      pr_debug("Unknown pcrel symbol: %s\n", S_GET_NAME(fixP->fx_addsy));
+
+      /* The symbol is undefined (or is defined but not in this section).
+	 Let the linker figure it out.  */
+      base = 0;
+    }
 
   return base;
 }
@@ -432,11 +457,15 @@ md_pcrel_from (fixS *fixP)
    and put it back in the fixup. To indicate that a fixup has been
    eliminated, set fixP->fx_done. */
 void
-md_apply_fix (fixS *fixP, valueT *valP, segT seg)
+md_apply_fix (fixS *fixP, valueT *valP, segT seg ATTRIBUTE_UNUSED)
 {
   char * const fixpos = fixP->fx_frag->fr_literal + fixP->fx_where;
   valueT value = *valP;
   unsigned insn = 0;
+
+  pr_debug("%s:%u: apply_fix: r_type=%d value=%lx offset=%lx\n",
+	   fixP->fx_file, fixP->fx_line, fixP->fx_r_type, value,
+	   fixP->fx_offset);
 
   switch (fixP->fx_r_type)
     {
@@ -454,6 +483,10 @@ md_apply_fix (fixS *fixP, valueT *valP, segT seg)
      default:
       {
 	const struct arc_operand *operand;
+
+	if (fixP->fx_pcrel)
+	  as_fatal (_("PC relative relocation not allowed for type %s"),
+		    bfd_get_reloc_code_name (fixP->fx_r_type));
 
 	if ((int) fixP->fx_r_type >= 0)
 	  as_fatal (_("unhandled relocation type %s"),
@@ -479,12 +512,31 @@ md_apply_fix (fixS *fixP, valueT *valP, segT seg)
   md_number_to_chars (fixpos, insn, fixP->fx_size);
 }
 
+/* Prepare machine-dependent frags for relaxation.
+
+   Called just before relaxation starts. Any symbol that is now undefined
+   will not become defined.
+
+   Return the correct fr_subtype in the frag.
+
+   Return the initial "guess for fr_var" to caller.  The guess for fr_var
+   is *actually* the growth beyond fr_fix. Whatever we do to grow fr_fix
+   or fr_var contributes to our returned value.
+
+   Although it may not be explicit in the frag, pretend
+   fr_var starts with a value.  */
 int
-md_estimate_size_before_relax (fragS *fragp ATTRIBUTE_UNUSED,
-			       asection *seg ATTRIBUTE_UNUSED)
+md_estimate_size_before_relax (fragS *fragP ATTRIBUTE_UNUSED,
+			       segT segment ATTRIBUTE_UNUSED)
 {
+  int growth = 4;
+
+  fragP->fr_var = 4;
+  pr_debug("%s:%d: md_estimate_size_before_relax: %d\n",
+	   fragP->fr_file, fragP->fr_line, growth);
+
   as_fatal (_("md_estimate_size_before_relax\n"));
-  return 1;
+  return growth;
 }
 
 /* Translate internal representation of relocation info to BFD target
@@ -524,13 +576,24 @@ tc_gen_reloc (asection *section ATTRIBUTE_UNUSED,
   return reloc;
 }
 
-/* Convert a machine dependent frag.  We never generate these.  */
+/* Perform post-processing of machine-dependent frags after relaxation.
+   Called after relaxation is finished.
+   In:	Address of frag.
+	fr_type == rs_machine_dependent.
+	fr_subtype is what the address relaxed to.
+
+   Out: Any fixS:s and constants are set up.
+*/
+
 void
 md_convert_frag (bfd *abfd ATTRIBUTE_UNUSED,
-		 asection *sec ATTRIBUTE_UNUSED,
-		 fragS *fragp ATTRIBUTE_UNUSED)
+		 segT segment ATTRIBUTE_UNUSED,
+		 fragS *fragP ATTRIBUTE_UNUSED)
 {
-  as_fatal (_("md_convert_frag\n"));
+  pr_debug("%s:%d: md_convert_frag, subtype: %d, fix: %d, var: %d\n",
+	   fragP->fr_file, fragP->fr_line,
+	   fragP->fr_subtype, fragP->fr_fix, fragP->fr_var);
+  abort ();
 }
 
 /* We have no need to default values of symbols.
@@ -565,15 +628,15 @@ md_undefined_symbol (char *name)
 }
 
 char *
-md_atof (int type,
-	 char *litP,
-	 int *sizeP)
+md_atof (int type ATTRIBUTE_UNUSED,
+	 char *litP ATTRIBUTE_UNUSED,
+	 int *sizeP ATTRIBUTE_UNUSED)
 {
   return 0x00;
 }
 
 void
-md_operand (expressionS *expressionP)
+md_operand (expressionS *expressionP ATTRIBUTE_UNUSED)
 {
 }
 
@@ -594,8 +657,9 @@ md_operand (expressionS *expressionP)
               arc700, av2em, av2hs.
 */
 int
-md_parse_option (int c, char *arg)
+md_parse_option (int c ATTRIBUTE_UNUSED, char *arg ATTRIBUTE_UNUSED)
 {
+  return 0;
 }
 
 void
@@ -627,6 +691,10 @@ assemble_tokens (const char *opname,
 
   /* Search opcodes. */
   opcode = (const struct arc_opcode *) hash_find (arc_opcode_hash, opname);
+
+  pr_debug ("%s:%d: assemble_tokens: trying opcode %x\n",
+	    frag_now->fr_file, frag_now->fr_line, opcode->opcode);
+
   if (opcode)
     {
       found_something = 1;
@@ -883,16 +951,18 @@ assemble_insn (const struct arc_opcode *opcode,
 	  reloc_operand = operand;
 	  reloc_exp = t;
 
-	  /* sanity checks */
-	  reloc_howto_type *reloc_howto
-	    = bfd_reloc_type_lookup (stdoutput,
-				     (bfd_reloc_code_real_type) reloc);
-	  if (reloc_howto->bitsize != operand->bits)
+	  if (reloc > 0)
 	    {
-	      as_bad (_("invalid relocation for field"));
-	      return;
+	      /* sanity checks */
+	      reloc_howto_type *reloc_howto
+		= bfd_reloc_type_lookup (stdoutput,
+					 (bfd_reloc_code_real_type) reloc);
+	      if (reloc_howto->bitsize != operand->bits)
+		{
+		  as_bad (_("invalid relocation for field"));
+		  return;
+		}
 	    }
-
 	  if (insn->nfixups >= MAX_INSN_FIXUPS)
 	    as_fatal (_("too many fixups"));
 
@@ -924,7 +994,8 @@ assemble_insn (const struct arc_opcode *opcode,
 	  fixup->reloc = -arc_fake_idx_Toperand;
 	}
       else
-	image |= (flg_operand->code & ((1 << flg_operand->bits) - 1)) << flg_operand->shift;
+	image |= (flg_operand->code & ((1 << flg_operand->bits) - 1))
+	  << flg_operand->shift;
     }
 
   /* Short instruction? */
@@ -939,6 +1010,10 @@ emit_insn (struct arc_insn *insn)
 {
   char *f;
   int i, offset = 0;
+
+  pr_debug ("Emit insn: 0x%x\n", insn->insn);
+  pr_debug ("\tSort    : 0x%d\n", insn->short_insn);
+  pr_debug ("\tLong imm: 0x%lx\n", insn->limm);
 
   /* Write out the instruction.  */
   if (insn->short_insn)
@@ -999,6 +1074,11 @@ emit_insn (struct arc_insn *insn)
 	  size = bfd_get_reloc_size (reloc_howto);
 	  pcrel = reloc_howto->pc_relative;
 	}
+
+      pr_debug ("%s:%d: emit_insn: new %s fixup\n",
+		frag_now->fr_file, frag_now->fr_line,
+		(fixup->reloc < 0) ? "Internal" :
+		bfd_get_reloc_code_name (fixup->reloc));
       fixP = fix_new_exp (frag_now, f - frag_now->fr_literal + offset,
 			  size, &fixup->exp, pcrel, fixup->reloc);
     }
