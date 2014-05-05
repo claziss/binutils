@@ -37,7 +37,9 @@ static int
 extract_rb (unsigned insn ATTRIBUTE_UNUSED,
 	    int *invalid ATTRIBUTE_UNUSED)
 {
-  return 0;
+  int value = (((insn >> 12) & 0x07) << 3) | ((insn >> 27) & 0x07);
+
+  return value;
 }
 
 /* Dummy insert LIMM function. */
@@ -74,6 +76,26 @@ insert_bbs9 (unsigned insn,
   /* Insert most significant bit.  */
   insn |= (((value >> 1) & 0x80) >> 7) << 15;
   return insn;
+}
+
+/* Insert bbit's s9 immediate operand function. */
+static int
+extract_bbs9 (unsigned insn,
+	      int *invalid)
+{
+  int value;
+
+  /* Insert least significant 7-bits.  */
+  value = (insn >> 17) & 0x7f;
+  /* Insert most significant bit.  */
+  value |= ((insn >> 15) & 0x01) << 7;
+
+  /* Fix the sign. */
+  int signbit = 1 << 7;
+  value = (value ^ signbit) - signbit;
+
+  /* Correct it to s9. */
+  return value << 1;
 }
 
 /* Insert Y-bit in bbit instructions. This function is called only
@@ -310,7 +332,7 @@ const struct arc_operand arc_operands[] =
 
     /* The signed "9-bit" immediate used for bbit instructions. */
 #define BBS9            (ZA + 1)
-    { 8, 17, -BBS9, ARC_OPERAND_SIGNED | ARC_OPERAND_PCREL, insert_bbs9, 0 },
+    { 8, 17, -BBS9, ARC_OPERAND_SIGNED | ARC_OPERAND_PCREL, insert_bbs9, extract_bbs9 },
     /* Fake operand to handle the T flag. */
 #define FKT             (BBS9 + 1)
     { 1, 3, 0, ARC_OPERAND_FAKE, insert_Ybit, 0},
