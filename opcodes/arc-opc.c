@@ -37,7 +37,10 @@ static int
 extract_rb (unsigned insn ATTRIBUTE_UNUSED,
 	    int *invalid ATTRIBUTE_UNUSED)
 {
-  int value = (((insn >> 12) & 0x07) << 3) | ((insn >> 27) & 0x07);
+  int value = (((insn >> 12) & 0x07) << 3) | ((insn >> 24) & 0x07);
+
+  if (value == 0x3e && invalid)
+    *invalid = 1; /* limm should be extracted in a different way. */
 
   return value;
 }

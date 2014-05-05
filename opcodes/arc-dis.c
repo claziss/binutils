@@ -134,15 +134,16 @@ print_insn_arc (bfd_vma memaddr,
 
   info->disassembler_needs_relocs = TRUE; /*FIXME to be moved in dissasemble_init_for_target */
 
+
   for (i = 0; i < arc_num_opcodes; i++)
     {
       opcode = &arc_opcodes[i];
 
-#if 1
+#if 0
       if ((insn[0] ^ opcode->opcode) & opcode->mask)
 	continue;
 #else
-      if ((insn[0] & ~opcode->mask) != opcode->opcode)
+      if ((insn[0] & opcode->mask) != opcode->opcode)
 	continue;
 #endif
 
@@ -165,6 +166,7 @@ print_insn_arc (bfd_vma memaddr,
 	    value = (insn[0] >> operand->shift) & ((1 << operand->bits) - 1);
 
 	  if (value == 0x3E
+	      && operand->flags & ARC_OPERAND_IR
 	      && !(operand->flags & ARC_OPERAND_LIMM))
 	    invalid = 1;
 	}
@@ -251,7 +253,8 @@ print_insn_arc (bfd_vma memaddr,
       need_comma = 1;
 
       /* adjust insn len*/
-      if (operand->flags & ARC_OPERAND_LIMM)
+      if (operand->flags & ARC_OPERAND_LIMM
+	  && !(operand->flags & ARC_OPERAND_DUPLICATE))
 	insnLen += 4;
     }
 
