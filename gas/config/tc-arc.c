@@ -119,7 +119,8 @@ struct arc_insn
   struct arc_fixup fixups[MAX_INSN_FIXUPS];
   long sequence;
   long limm;
-  unsigned char short_insn;
+  unsigned char short_insn; /* Boolean value: 1 if current insn is short. */
+  unsigned char has_limm;   /* Boolean value: 1 if limm field is valid. */
 };
 
 /* The cpu for which we are generating code.  */
@@ -831,7 +832,33 @@ find_opcode_match (const struct arc_opcode *first_opcode,
 		case O_absent:
 		case O_register:
 		  goto match_failed;
+
+		case O_constant:
+		  /* Check the range. */
+		  if (operand->bits != 32)
+		    {
+		      offsetT min, max, val;
+		      val = tok[tokidx].X_add_number;
+
+		      if (operand->flags & ARC_OPERAND_SIGNED)
+			{
+			  max = (1 << (operand->bits - 1)) - 1;
+			  min = -(1 << (operand->bits - 1));
+			}
+		      else
+			{
+			  max = (1 << operand->bits) - 1;
+			  min = 0;
+			}
+
+		      if (val < min || val > max)
+			goto match_failed;
+		    }
+		  break;
+
 		default:
+		  if (operand->default_reloc == 0)
+		    goto match_failed; /* The operand needs relocation. */
 		  break;
 		}
 	      /* If expect duplicate, make sure it is duplicate. */
@@ -923,6 +950,9 @@ assemble_insn (const struct arc_opcode *opcode,
   memset (insn, 0, sizeof (*insn));
   image = opcode->opcode;
 
+  pr_debug ("%s:%d: assemble_insn: using opcode %x\n",
+	    frag_now->fr_file, frag_now->fr_line, opcode->opcode);
+
   /* Handle operands. */
   for (argidx = opcode->operands; *argidx; ++argidx)
     {
@@ -932,6 +962,7 @@ assemble_insn (const struct arc_opcode *opcode,
       if (operand->flags & ARC_OPERAND_DUPLICATE)
 	{
 	  /* Duplicate operand, already inserted. */
+	  tokidx ++;
 	  continue;
 	}
 
@@ -945,7 +976,7 @@ assemble_insn (const struct arc_opcode *opcode,
       /* Regardless if we have a reloc or not mark the instruction
 	 limm if it is the case. */
       if (operand->flags & ARC_OPERAND_LIMM)
-	insn->limm = 1;
+	insn->has_limm = 1;
 
       switch (t->X_op)
 	{
@@ -956,13 +987,11 @@ assemble_insn (const struct arc_opcode *opcode,
 
 	case O_constant:
 	  image = insert_operand (image, operand, t->X_add_number, NULL, 0);
-	  gas_assert (reloc_operand == NULL);
+	  /* FIXME! do I need this assert here? ex: limm,u6 gas_assert (reloc_operand == NULL); */
 	  reloc_operand = operand;
 	  reloc_exp = t;
 	  if (operand->flags & ARC_OPERAND_LIMM)
 	    insn->limm = t->X_add_number;
-	  else
-	    insn->limm = 0;
 	  break;
 
 	default:
@@ -1045,7 +1074,7 @@ emit_insn (struct arc_insn *insn)
   /* Write out the instruction.  */
   if (insn->short_insn)
     {
-      if (insn->limm)
+      if (insn->has_limm)
 	{
 	  f = frag_more (6);
 	  md_number_to_chars (f, insn->insn, 2);
@@ -1062,7 +1091,7 @@ emit_insn (struct arc_insn *insn)
     }
   else
     {
-      if (insn->limm)
+      if (insn->has_limm)
 	{
 	  f = frag_more (8);
 	  md_number_to_chars (f, insn->insn, 4);

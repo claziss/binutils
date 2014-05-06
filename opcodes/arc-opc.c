@@ -116,6 +116,34 @@ insert_Ybit (unsigned insn,
   return insn;
 }
 
+/* Insert the signed 12-bit immediate. */
+static unsigned
+insert_simm12 (unsigned insn,
+	     int value,
+	     const char **errmsg)
+{
+  if ((value < -2048) || (value > 2047))
+    *errmsg = _("out of range.");
+  else
+    insn |= ((value & 0x3f) << 6) | ((value >> 6) & 0x3f);
+
+  return insn;
+}
+
+/* Insert bbit's s9 immediate operand function. */
+static int
+extract_simm12 (unsigned insn,
+		int *invalid)
+{
+  int value = (((insn & 0x3f) << 6) | ((insn >> 6) & 0x3f));
+
+  /* Fix the sign. */
+  int signbit = 1 << 11;
+  value = (value ^ signbit) - signbit;
+
+  return value;
+}
+
 /* Abbreviations for instruction subsets.  */
 #define BASE			ARC_OPCODE_BASE
 #define EM			ARC_OPCODE_ARCv2
@@ -338,7 +366,15 @@ const struct arc_operand arc_operands[] =
     { 8, 17, -BBS9, ARC_OPERAND_SIGNED | ARC_OPERAND_PCREL, insert_bbs9, extract_bbs9 },
     /* Fake operand to handle the T flag. */
 #define FKT             (BBS9 + 1)
-    { 1, 3, 0, ARC_OPERAND_FAKE, insert_Ybit, 0},
+    { 1, 3, 0, ARC_OPERAND_FAKE, insert_Ybit, 0 },
+
+    /* The unsigned 6-bit immediate used in most arithmetic instructions. */
+#define UIMM6           (FKT + 1)
+    { 6, 6, 0, ARC_OPERAND_UNSIGNED, 0, 0 },
+    /* 12-bit signed immediate value */
+#define SIMM12          (UIMM6 + 1)
+    { 12, 6, 0, ARC_OPERAND_SIGNED, insert_simm12, extract_simm12 },
+
   };
 const unsigned arc_num_operands = sizeof(arc_operands)/sizeof(*arc_operands);
 
@@ -352,6 +388,17 @@ const unsigned arc_fake_idx_Toperand = FKT;
 #define ARG_32BIT_RALIMMLIMM    { RA, LIMM, LIMMdup }
 #define ARG_32BIT_RBRBRC        { RB, RBdup, RC }
 #define ARG_32BIT_ZARBRC        { ZA, RB, RC }
+#define ARG_32BIT_ZALIMMRC      { ZA, LIMM, RC }
+#define ARG_32BIT_ZARBLIMM      { ZA, RB, LIMM }
+#define ARG_32BIT_ZALIMMLIMM    { ZA, LIMM, LIMMdup }
+#define ARG_32BIT_RARBU6        { RA, RB, UIMM6 }
+#define ARG_32BIT_RALIMMU6      { RA, LIMM, UIMM6 }
+#define ARG_32BIT_ZARBU6        { ZA, RB, UIMM6 }
+#define ARG_32BIT_ZALIMMU6      { ZA, LIMM, UIMM6 }
+#define ARG_32BIT_RBRBS12       { RB, RBdup, SIMM12 }
+#define ARG_32BIT_ZALIMMS12     { ZA, LIMM, SIMM12 }
+#define ARG_32BIT_RBRBLIMM      { RB, RBdup, LIMM }
+#define ARG_32BIT_RBRBU6        { RB, RBdup, UIMM6 }
 
 /* The opcode table.
 
@@ -361,12 +408,76 @@ const unsigned arc_fake_idx_Toperand = FKT;
 */
 const struct arc_opcode arc_opcodes[] =
   {
+    /*
     { "add", 0x20000000, 0xF8FF0000, BASE, ARG_32BIT_RARBRC, FLAGS_F },
     { "add", 0x2000003E, 0xF8FF003F, BASE, ARG_32BIT_ZARBRC, FLAGS_F },
     { "add", 0x26007000, 0xFFFF7000, BASE, ARG_32BIT_RALIMMRC, FLAGS_F },
     { "add", 0x20000F80, 0xF8FF0FC0, BASE, ARG_32BIT_RARBLIMM, FLAGS_F },
     { "add", 0x26007F80, 0xFFFF7FC0, BASE, ARG_32BIT_RALIMMLIMM, FLAGS_F },
     { "add", 0x20C00000, 0xF8FF0000, BASE, ARG_32BIT_RBRBRC, FLAGS_CCF },
+    */
+
+/*ADD */
+/* add<.f>    a,b,c     	0010 0bbb 0000 0000 FBBB CCCC CCAA AAAA  */
+{ "add", 0x20000000, 0xF8FF0000, BASE, ARG_32BIT_RARBRC,     FLAGS_F },
+
+/* add<.f>    a,b,u6    	0010 0bbb 0100 0000 FBBB uuuu uuAA AAAA  */
+{ "add", 0x20400000, 0xF8FF0000, BASE, ARG_32BIT_RARBU6,     FLAGS_F },
+
+/* add<.f>    b,b,s12   	0010 0bbb 1000 0000 FBBB ssss ssSS SSSS  */
+{ "add", 0x20800000, 0xF8FF0000, BASE, ARG_32BIT_RBRBS12,    FLAGS_F },
+
+/* add<.f>    a,b,limm  	0010 0bbb 0000 0000 FBBB 1111 10AA AAAA  */
+{ "add", 0x20000F80, 0xF8FF0FC0, BASE, ARG_32BIT_RARBLIMM,   FLAGS_F },
+
+/* add<.f>    a,limm,c  	0010 0110 0000 0000 F111 CCCC CCAA AAAA  */
+{ "add", 0x26007000, 0xFFFF7000, BASE, ARG_32BIT_RALIMMRC,   FLAGS_F },
+
+/* add<.f>    a,limm,u6 	0010 0110 0100 0000 F111 uuuu uuAA AAAA  */
+{ "add", 0x26407000, 0xFFFF7000, BASE, ARG_32BIT_RALIMMU6,   FLAGS_F },
+
+/* add<.f>    a,limm,limm 	0010 0110 0000 0000 F111 1111 10AA AAAA  */
+{ "add", 0x26007F80, 0xFFFF7FC0, BASE, ARG_32BIT_RALIMMLIMM, FLAGS_F },
+
+/* add<.cc><.f>    b,b,c 	0010 0bbb 1100 0000 FBBB CCCC CC0Q QQQQ  */
+{ "add", 0x20C00000, 0xF8FF0020, BASE, ARG_32BIT_RBRBRC,     FLAGS_CCF },
+
+/* add<.cc><.f>    b,b,u6 	0010 0bbb 1100 0000 FBBB uuuu uu1Q QQQQ  */
+{ "add", 0x20C00020, 0xF8FF0020, BASE, ARG_32BIT_RBRBU6,     FLAGS_CCF },
+
+/* add<.cc><.f>    b,b,limm 	0010 0bbb 1100 0000 FBBB 1111 100Q QQQQ  */
+{ "add", 0x20C00F80, 0xF8FF0FE0, BASE, ARG_32BIT_RBRBLIMM,   FLAGS_CCF },
+
+/* add<.f>    0,b,c     	0010 0bbb 0000 0000 FBBB CCCC CC11 1110  */
+{ "add", 0x2000003E, 0xF8FF003F, BASE, ARG_32BIT_ZARBRC,     FLAGS_F },
+
+/* add<.f>    0,b,u6    	0010 0bbb 0100 0000 FBBB uuuu uu11 1110  */
+{ "add", 0x2040003E, 0xF8FF003F, BASE, ARG_32BIT_ZARBU6,     FLAGS_F },
+
+/* add<.f>    0,b,limm  	0010 0bbb 0000 0000 FBBB 1111 1011 1110  */
+{ "add", 0x20000FBE, 0xF8FF0FFF, BASE, ARG_32BIT_ZARBLIMM,   FLAGS_F },
+
+/* add<.f>    0,limm,c  	0010 0110 0000 0000 F111 CCCC CC11 1110  */
+{ "add", 0x2600703E, 0xFFFF703F, BASE, ARG_32BIT_ZALIMMRC,   FLAGS_F },
+
+/* add<.f>    0,limm,u6 	0010 0110 0100 0000 F111 uuuu uu11 1110  */
+{ "add", 0x2640703E, 0xFFFF703F, BASE, ARG_32BIT_ZALIMMU6,   FLAGS_F },
+
+/* add<.f>    0,limm,s12 	0010 0110 1000 0000 F111 ssss ssSS SSSS  */
+{ "add", 0x26807000, 0xFFFF7000, BASE, ARG_32BIT_ZALIMMS12,  FLAGS_F },
+
+/* add<.f>    0,limm,limm 	0010 0110 0000 0000 F111 1111 1011 1110  */
+{ "add", 0x26007FBE, 0xFFFF7FFF, BASE, ARG_32BIT_ZALIMMLIMM, FLAGS_F },
+
+/* add<.cc><.f>    0,limm,c 	0010 0110 1100 0000 F111 CCCC CC0Q QQQQ  */
+{ "add", 0x26C07000, 0xFFFF7020, BASE, ARG_32BIT_ZALIMMRC,   FLAGS_CCF },
+
+/* add<.cc><.f>    0,limm,u6 	0010 0110 1100 0000 F111 uuuu uu1Q QQQQ  */
+{ "add", 0x26C07020, 0xFFFF7020, BASE, ARG_32BIT_ZALIMMU6,   FLAGS_F },
+
+/* add<.cc><.f>    0,limm,limm 	0010 0110 1100 0000 F111 1111 100Q QQQQ  */
+{ "add", 0x26C07F80, 0xFFFF7FE0, BASE, ARG_32BIT_ZALIMMLIMM, FLAGS_CCF },
+
     { "nop", 0x264A7000, 0xFFFFFFFF, BASE, ARG_NONE, FLAGS_NONE },
     { "nop_s", 0x78E0, 0xFFFF, BASE, ARG_NONE, FLAGS_NONE },
     { "bbit0", 0x8010006, 0xF8010017, BASE, { RB, RC, BBS9 }, { C_T, C_D } },
