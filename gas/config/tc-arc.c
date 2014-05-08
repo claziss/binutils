@@ -183,6 +183,7 @@ tokenize_arguments (char *str,
   char *old_input_line_pointer;
   bfd_boolean saw_comma = FALSE;
   bfd_boolean saw_arg = FALSE;
+  bfd_boolean saw_brk = FALSE;
   int num_args = 0;
 
   memset (tok, 0, sizeof (*tok) * ntok);
@@ -208,7 +209,21 @@ tokenize_arguments (char *str,
 
 	case '@':
 	  /* FIXME! A relocation opernad has the following form
-	     @sequence_number@reloation_type. */
+	     @sequence_number@relocation_type. */
+	  input_line_pointer++;
+	  as_bad (_("@ not supported"));
+	  break;
+
+	  /* FIXME! just smartly ignore '[' and ']'. I should check
+	     against the mnemonic syntax. */
+	case ']':
+	  saw_brk = FALSE;
+	  /* FALL THROUGH */
+	case '[':
+	  input_line_pointer++;
+	  if (saw_brk || !saw_arg)
+	    goto err;
+	  saw_brk = TRUE;
 	  break;
 
 	default:
@@ -216,6 +231,9 @@ tokenize_arguments (char *str,
 	    goto err;
 
 	  expression (tok);
+#ifdef DEBUG
+	  print_expr (tok);
+#endif
 	  if (tok->X_op == O_illegal || tok->X_op == O_absent)
 	    goto err;
 
@@ -658,6 +676,10 @@ md_atof (int type ATTRIBUTE_UNUSED,
   return 0x00;
 }
 
+/* Called for any expression that can not be recognized.  When the
+   function is called, `input_line_pointer' will point to the start of
+   the expression.  */
+
 void
 md_operand (expressionS *expressionP ATTRIBUTE_UNUSED)
 {
@@ -714,12 +736,11 @@ assemble_tokens (const char *opname,
 
   /* Search opcodes. */
   opcode = (const struct arc_opcode *) hash_find (arc_opcode_hash, opname);
-
-  pr_debug ("%s:%d: assemble_tokens: trying opcode %x\n",
-	    frag_now->fr_file, frag_now->fr_line, opcode->opcode);
-
   if (opcode)
     {
+      pr_debug ("%s:%d: assemble_tokens: trying opcode %x\n",
+		frag_now->fr_file, frag_now->fr_line, opcode->opcode);
+
       found_something = 1;
       opcode = find_opcode_match (opcode, tok, &ntok, pflags, nflgs, &cpumatch);
       if (opcode)
