@@ -2,8 +2,6 @@
    Copyright 2014 Synopsys Inc.
    Contributed Claudiu Zissulescu (claziss@synopsys.com)
 
-   This file is part of libopcodes.
-
    This library is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 3, or (at your option)
@@ -23,6 +21,8 @@
 #include <stdio.h>
 #include "dis-asm.h"
 #include "opcode/arc.h"
+#include "arc-dis.h"
+#include "arc-ext.h"
 
 
 static const char * const regnames[32] = {
@@ -36,6 +36,11 @@ static const char * const regnames[32] = {
 #define ARRANGE_ENDIAN(info, buf)					\
   info->endian == BFD_ENDIAN_LITTLE ? bfd_getl32(buf) : bfd_getb32(buf)
 
+#define BITS(word,s,e)  (((word) << (sizeof(word)*8-1 - e)) >> (s + (sizeof(word)*8-1 - e)))
+#define OPCODE(word)	(BITS ((word), 27, 31))
+#define FIELDA(word)	(BITS ((word), 21, 26))
+#define FIELDB(word)	(BITS ((word), 15, 20))
+#define FIELDC(word)	(BITS ((word),  9, 14))
 
 static bfd_vma
 bfd_getm32 (unsigned int data)
@@ -177,7 +182,20 @@ print_insn_arc (bfd_vma memaddr,
       goto found;
     }
 
-  /* No instruction found. */
+  /* No instruction found. Try the extenssions. */
+  {
+    const char *instrName = "";
+    int flags;
+    instrName = arcExtMap_instName (OPCODE (insn[0]), insn[0],
+				    &flags);
+    if (instrName)
+      {
+	opcode = &arc_opcodes[0];
+	(*info->fprintf_func) (info->stream, "%s", instrName);
+	goto print_flags;
+      }
+  }
+
   if (insnLen == 2)
     (*info->fprintf_func) (info->stream, ".long %#04x", insn[0]);
   else
@@ -188,6 +206,7 @@ print_insn_arc (bfd_vma memaddr,
  found:
   (*info->fprintf_func) (info->stream, "%s", opcode->name);
 
+ print_flags:
   /* Now extract and print the flags. */
   for (flgidx = opcode->flags; *flgidx; flgidx++)
     {
@@ -262,8 +281,12 @@ print_insn_arc (bfd_vma memaddr,
 }
 
 disassembler_ftype
-arc_get_disassembler (void *ptr ATTRIBUTE_UNUSED)
+arc_get_disassembler (bfd *abfd)
 {
+  /* Read the extenssion insns and registers, if any. */
+  build_ARC_extmap (abfd);
+  dump_ARC_extmap ();
+
   return print_insn_arc;
 }
 
