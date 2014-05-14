@@ -156,6 +156,51 @@ struct arc_flags
 /* A table of the register symbols.  */
 static symbolS *arc_register_table[64];
 
+/* Used by the arc_reloc_op table. Order is important. */
+#define O_gotoff  O_md1     /* @gotoff relocation. */
+#define O_gotpc   O_md2     /* @gotpc relocation. */
+#define O_plt     O_md3     /* @plt relocation. */
+#define O_sda     O_md4     /* @sda relocation. */
+
+/* Dummy relocation, to be sorted out */
+#define DUMMY_RELOC_ARC_SDA     (BFD_RELOC_UNUSED + 1)
+
+#define USER_RELOC_P(R) ((R) >= O_gotoff && (R) <= O_sda)
+
+/* A table to map the spelling of a relocation operand into an appropriate
+   bfd_reloc_code_real_type type.  The table is assumed to be ordered such
+   that op-O_literal indexes into it.  */
+#define ARC_RELOC_TABLE(op)						\
+  (&arc_reloc_op[ ((!USER_RELOC_P (op))					\
+		   ? (abort (), 0)					\
+		   : (int) (op) - (int) O_gotoff) ])
+
+#define DEF(NAME, RELOC, REQ)				\
+  { #NAME, sizeof(#NAME)-1, O_##NAME, RELOC, REQ}
+
+static const struct arc_reloc_op_tag
+{
+  const char *name;				/* String to lookup.  */
+  size_t length;				/* Size of the string.  */
+  operatorT op;					/* Which operator to use.  */
+  extended_bfd_reloc_code_real_type reloc;
+  unsigned int complex_expr : 1;		/* Allows complex
+						   relocatione
+						   expression like
+						   identifier@reloc +
+						   const  */
+}
+arc_reloc_op[] =
+{
+  DEF (gotoff, BFD_RELOC_ARC_GOTOFF,  1),
+  DEF (gotpc,  BFD_RELOC_ARC_GOTPC32, 0),
+  DEF (plt,    BFD_RELOC_ARC_PLT32,   0),
+  DEF (sda,    DUMMY_RELOC_ARC_SDA,   1),
+};
+
+static const int arc_num_reloc_op
+  = sizeof (arc_reloc_op) / sizeof (*arc_reloc_op);
+
 /**************************************************************************/
 /* Functions implementation                                               */
 /**************************************************************************/
@@ -174,6 +219,67 @@ static unsigned insert_operand (unsigned, const struct arc_operand *,
 				offsetT, char *, unsigned);
 
 
+/* Smartly print an expression. */
+void debug_exp (expressionS *t)
+{
+  const char *name;
+  const char *namemd;
+
+  pr_debug ("debug_exp: ");
+
+  switch (t->X_op)
+    {
+    default:			name = "unknown";		break;
+    case O_illegal:		name = "O_illegal";		break;
+    case O_absent:		name = "O_absent";		break;
+    case O_constant:		name = "O_constant";		break;
+    case O_symbol:      	name = "O_symbol";		break;
+    case O_symbol_rva:		name = "O_symbol_rva";		break;
+    case O_register:		name = "O_register";		break;
+    case O_big:			name = "O_big";			break;
+    case O_uminus:		name = "O_uminus";		break;
+    case O_bit_not:		name = "O_bit_not";		break;
+    case O_logical_not:		name = "O_logical_not";		break;
+    case O_multiply:		name = "O_multiply";		break;
+    case O_divide:		name = "O_divide";		break;
+    case O_modulus:		name = "O_modulus";		break;
+    case O_left_shift:		name = "O_left_shift";		break;
+    case O_right_shift:		name = "O_right_shift";		break;
+    case O_bit_inclusive_or:	name = "O_bit_inclusive_or";	break;
+    case O_bit_or_not:		name = "O_bit_or_not";		break;
+    case O_bit_exclusive_or:	name = "O_bit_exclusive_or";	break;
+    case O_bit_and:		name = "O_bit_and";		break;
+    case O_add:			name = "O_add";			break;
+    case O_subtract:		name = "O_subtract";		break;
+    case O_eq:			name = "O_eq";			break;
+    case O_ne:			name = "O_ne";			break;
+    case O_lt:			name = "O_lt";			break;
+    case O_le:			name = "O_le";			break;
+    case O_ge:			name = "O_ge";			break;
+    case O_gt:			name = "O_gt";			break;
+    case O_logical_and:		name = "O_logical_and";		break;
+    case O_logical_or:		name = "O_logical_or";		break;
+    case O_index:		name = "O_index";		break;
+    }
+
+  switch (t->X_md)
+    {
+    default:			namemd = "unknown";		break;
+    case O_gotoff:              namemd = "O_gotoff";		break;
+    case O_gotpc:               namemd = "O_gotpc";		break;
+    case O_plt:                 namemd = "O_plt"; 		break;
+    case O_sda:                 namemd = "O_sda"; 		break;
+    }
+
+  pr_debug ("%s(%s, %s, %d, %s)", name,
+	    (t->X_add_symbol) ? S_GET_NAME (t->X_add_symbol) : "--",
+	    (t->X_op_symbol) ? S_GET_NAME (t->X_op_symbol) : "--",
+	    (int) t->X_add_number,
+	    (t->X_md) ? namemd : "--");
+  pr_debug ("\n");
+  fflush (stderr);
+}
+
 /* Parse the arguments to an opcode. */
 static int
 tokenize_arguments (char *str,
@@ -185,6 +291,11 @@ tokenize_arguments (char *str,
   bfd_boolean saw_arg = FALSE;
   bfd_boolean saw_brk = FALSE;
   int num_args = 0;
+  const char *p;
+  int c, i;
+  size_t len;
+  const struct arc_reloc_op_tag *r;
+  expressionS tmpE;
 
   memset (tok, 0, sizeof (*tok) * ntok);
 
@@ -207,13 +318,6 @@ tokenize_arguments (char *str,
 	  saw_comma = TRUE;
 	  break;
 
-	case '@':
-	  /* FIXME! A relocation opernad has the following form
-	     @sequence_number@relocation_type. */
-	  input_line_pointer++;
-	  as_bad (_("@ not supported"));
-	  break;
-
 	  /* FIXME! just smartly ignore '[' and ']'. I should check
 	     against the mnemonic syntax. */
 	case ']':
@@ -226,13 +330,81 @@ tokenize_arguments (char *str,
 	  saw_brk = TRUE;
 	  break;
 
+	case '@':
+	  /* We have labels, function names and reloations, all
+	     starting with @ symbol. Sort them out. */
+	  if (saw_arg && !saw_comma)
+	    goto err;
+
+	  ++input_line_pointer;
+
+	  /* Parse @label. */
+	  expression (tok);
+	  if (*input_line_pointer != '@')
+	    goto normalsymbol; /* this is not a relocation. */
+
+	  /* A relocation opernad has the following form
+	     @identifier@relocation_type. The identifier is already in tok! */
+	  if (tok->X_op != O_symbol)
+	    {
+	      as_bad (_("No valid label relocation operand"));
+	      goto err;
+	    }
+
+	  ++input_line_pointer;
+	  /* Parse @relocation_type */
+	  memset (&tmpE, 0, sizeof (tmpE));
+	  expression (&tmpE);
+
+	  if (tmpE.X_op != O_symbol)
+	    {
+	      as_bad (_("No relocation operand"));
+	      goto err;
+	    }
+	  p = S_GET_NAME (tmpE.X_add_symbol);
+	  len = strlen (p);
+
+	  /* Go through known relocation and try to find a match. */
+	  r = &arc_reloc_op[0];
+ 	  for (i = arc_num_reloc_op - 1; i >= 0; i--, r++)
+	    if (len == r->length && memcmp (p, r->name, len) == 0)
+	      break;
+
+	  if (i < 0)
+	    {
+	      as_bad (_("Unknown relocation operand: @%s"), p);
+	      goto err;
+	    }
+	  tok->X_md = r->op;
+	  tok->X_add_number = tmpE.X_add_number;
+	  if (tmpE.X_add_number && !r->complex_expr)
+	    {
+	      as_bad (_("Complex relocation operand."));
+	      goto err;
+	    }
+
+#ifdef DEBUG
+	  //print_expr (tok);
+#endif
+ 	  debug_exp (tok);
+
+	  saw_comma = FALSE;
+	  saw_arg = TRUE;
+	  tok++;
+	  num_args++;
+	  break;
+
 	default:
+
 	  if (saw_arg && !saw_comma)
 	    goto err;
 
 	  expression (tok);
+
+	normalsymbol:
+ 	  debug_exp (tok);
 #ifdef DEBUG
-	  print_expr (tok);
+	  //print_expr (tok);
 #endif
 	  if (tok->X_op == O_illegal || tok->X_op == O_absent)
 	    goto err;
@@ -1008,7 +1180,8 @@ assemble_insn (const struct arc_opcode *opcode,
 
 	case O_constant:
 	  image = insert_operand (image, operand, t->X_add_number, NULL, 0);
-	  /* FIXME! do I need this assert here? ex: limm,u6 gas_assert (reloc_operand == NULL); */
+	  /* FIXME! do I need this assert here? ex: limm,u6 gas_assert
+	     (reloc_operand == NULL); */
 	  reloc_operand = operand;
 	  reloc_exp = t;
 	  if (operand->flags & ARC_OPERAND_LIMM)
@@ -1018,7 +1191,24 @@ assemble_insn (const struct arc_opcode *opcode,
 	default:
 	  /* This operand needs a relocation. */
 	  if (reloc == BFD_RELOC_UNUSED)
-	    reloc = operand->default_reloc;
+	    {
+	      switch (t->X_md)
+		{
+		case O_gotoff:
+		case O_gotpc:
+		case O_plt:
+		  /*FIXME! PLT reloc works for both bl/bl<cc>
+		    instructions. Maybe a good idea is to separate
+		    them. */
+		  reloc = ARC_RELOC_TABLE(t->X_md)->reloc;
+		  break;
+		case O_sda:
+		  /* Just consider the default relocation. */
+		default:
+		  reloc = operand->default_reloc;
+		  break;
+		}
+	    }
 
 	  gas_assert (reloc_operand == NULL);
 	  reloc_operand = operand;

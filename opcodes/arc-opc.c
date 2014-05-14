@@ -408,15 +408,6 @@ const unsigned arc_fake_idx_Toperand = FKT;
 */
 const struct arc_opcode arc_opcodes[] =
   {
-    /*
-    { "add", 0x20000000, 0xF8FF0000, BASE, ARG_32BIT_RARBRC, FLAGS_F },
-    { "add", 0x2000003E, 0xF8FF003F, BASE, ARG_32BIT_ZARBRC, FLAGS_F },
-    { "add", 0x26007000, 0xFFFF7000, BASE, ARG_32BIT_RALIMMRC, FLAGS_F },
-    { "add", 0x20000F80, 0xF8FF0FC0, BASE, ARG_32BIT_RARBLIMM, FLAGS_F },
-    { "add", 0x26007F80, 0xFFFF7FC0, BASE, ARG_32BIT_RALIMMLIMM, FLAGS_F },
-    { "add", 0x20C00000, 0xF8FF0000, BASE, ARG_32BIT_RBRBRC, FLAGS_CCF },
-    */
-
 /*ADD */
 /* add<.f>    a,b,c     	0010 0bbb 0000 0000 FBBB CCCC CCAA AAAA  */
 { "add", 0x20000000, 0xF8FF0000, BASE, ARG_32BIT_RARBRC,     FLAGS_F },
