@@ -80,17 +80,44 @@ const char FLT_CHARS[] = "rRsSfFdD";
 
 /* Byte order.  */
 extern int target_big_endian;
+const char *arc_target_format = DEFAULT_TARGET_FORMAT;
 static int byte_order = DEFAULT_BYTE_ORDER;
 
+/* Forward declaration */
+static void arc_common (int);
+
 const pseudo_typeS md_pseudo_table[] =
-  { {0, 0, 0} };
+  {
+    /* Make sure that .word is 32 bits */
+    { "word", cons, 4 },
+
+    { "align",   s_align_bytes, 0 }, /* Defaulting is invalid (0).  */
+    { "comm",    arc_common, 0 },
+    { "common",  arc_common, 0 },
+    { "lcomm",   arc_common, 1 },
+    { "lcommon", arc_common, 1 },
+
+    { NULL, NULL, 0 }
+  };
 
 const char *md_shortopts = "";
 
-struct option md_longopts[] =
-  { {0, 0, 0, 0} };
+enum options
+  {
+    OPTION_EB = OPTION_MD_BASE,
+    OPTION_EL,
+    OPTION_MCPU
+  };
 
-size_t md_longopts_size = 0;
+struct option md_longopts[] =
+  {
+    { "EB",             no_argument, NULL, OPTION_EB },
+    { "EL",             no_argument, NULL, OPTION_EL },
+    { "mcpu",           required_argument, NULL, OPTION_MCPU },
+    { NULL,		no_argument, NULL, 0 }
+  };
+
+size_t md_longopts_size = sizeof (md_longopts);
 
 /**************************************************************************/
 /* Local data and data types                                              */
@@ -127,6 +154,9 @@ struct arc_insn
 static unsigned arc_target = ARC_OPCODE_BASE;
 static const char *arc_target_name = "<all>";
 
+/* The default architecture. */
+static int arc_mach_type = bfd_mach_arc_arcv2;
+
 /* The hash table of instruction opcodes.  */
 static struct hash_control *arc_opcode_hash;
 
@@ -138,8 +168,8 @@ static const struct cpu_type
 }
 cpu_types[] =
 {
-  { "ARCv2EM", ARC_OPCODE_BASE | ARC_OPCODE_ARCv2 },
-  { "ARCv2HS", ARC_OPCODE_BASE | ARC_OPCODE_ARCv2 },
+  { "arcv2em", ARC_OPCODE_BASE | ARC_OPCODE_ARCv2 },
+  { "arcv2hs", ARC_OPCODE_BASE | ARC_OPCODE_ARCv2 },
   { "all", ARC_OPCODE_BASE },
   { 0, 0 }
 };
@@ -201,8 +231,11 @@ arc_reloc_op[] =
 static const int arc_num_reloc_op
   = sizeof (arc_reloc_op) / sizeof (*arc_reloc_op);
 
+/* Flags to set in the elf header. */
+static flagword arc_eflag = 0x00;
+
 /**************************************************************************/
-/* Functions implementation                                               */
+/* Functions declaration                                                  */
 /**************************************************************************/
 
 static void assemble_tokens (const char *, const expressionS *, int,
@@ -214,13 +247,154 @@ static void assemble_insn (const struct arc_opcode *, const expressionS *,
 			   int, const struct arc_flags *, int,
 			   struct arc_insn *, extended_bfd_reloc_code_real_type);
 static void emit_insn (struct arc_insn *);
-
 static unsigned insert_operand (unsigned, const struct arc_operand *,
 				offsetT, char *, unsigned);
 
+/**************************************************************************/
+/* Functions implementation                                               */
+/**************************************************************************/
+
+/* Like md_number_to_chars but used for limms. The 4-byte limm value,
+   is encoded as 'middle-endian' for a little-endian target. FIXME!
+   this function is used for regular 4 byte instructions as well. */
+
+static void
+md_number_to_chars_midend (char *buf,
+			   valueT val,
+			   int n)
+{
+  if (n == 4)
+    {
+      md_number_to_chars (buf,     (val & 0xffff0000) >> 16, 2);
+      md_number_to_chars (buf + 2, (val & 0xffff), 2);
+    }
+  else
+    {
+      md_number_to_chars (buf, val, n);
+    }
+}
+
+static void
+arc_common (int localScope)
+{
+  char *name;
+  char c;
+  char *p;
+  int align, size;
+  symbolS *symbolP;
+
+  name = input_line_pointer;
+  c = get_symbol_end ();
+  /* just after name is now '\0'  */
+  p = input_line_pointer;
+  *p = c;
+  SKIP_WHITESPACE ();
+
+  if (*input_line_pointer != ',')
+    {
+      as_bad (_("expected comma after symbol name"));
+      ignore_rest_of_line ();
+      return;
+    }
+
+  input_line_pointer++;		/* skip ','  */
+  size = get_absolute_expression ();
+
+  if (size < 0)
+    {
+      as_bad (_("negative symbol length"));
+      ignore_rest_of_line ();
+      return;
+    }
+
+  *p = 0;
+  symbolP = symbol_find_or_make (name);
+  *p = c;
+
+  if (S_IS_DEFINED (symbolP) && ! S_IS_COMMON (symbolP))
+    {
+      as_bad (_("ignoring attempt to re-define symbol"));
+      ignore_rest_of_line ();
+      return;
+    }
+  if (((int) S_GET_VALUE (symbolP) != 0) \
+      && ((int) S_GET_VALUE (symbolP) != size))
+    {
+      as_warn (_("length of symbol \"%s\" already %ld, ignoring %d"),
+	       S_GET_NAME (symbolP), (long) S_GET_VALUE (symbolP), size);
+    }
+  gas_assert (symbolP->sy_frag == &zero_address_frag);
+
+  /* Now parse the alignment field.  This field is optional for
+     local and global symbols. Default alignment is zero.  */
+  if (*input_line_pointer == ',')
+    {
+      input_line_pointer++;
+      align = get_absolute_expression ();
+      if (align < 0)
+	{
+	  align = 0;
+	  as_warn (_("assuming symbol alignment of zero"));
+	}
+    }
+  else if (localScope == 0)
+    align = 0;
+
+  else
+    {
+      as_bad (_("Expected comma after length for lcomm directive"));
+      ignore_rest_of_line ();
+      return;
+    }
+
+
+  if (localScope != 0)
+    {
+      segT old_sec;
+      int old_subsec;
+      char *pfrag;
+
+      old_sec    = now_seg;
+      old_subsec = now_subseg;
+      record_alignment (bss_section, align);
+      subseg_set (bss_section, 0);  /* ??? subseg_set (bss_section, 1); ???  */
+
+      if (align)
+	/* Do alignment.  */
+	frag_align (align, 0, 0);
+
+      /* Detach from old frag.  */
+      if (S_GET_SEGMENT (symbolP) == bss_section)
+	symbolP->sy_frag->fr_symbol = NULL;
+
+      symbolP->sy_frag = frag_now;
+      pfrag = frag_var (rs_org, 1, 1, (relax_substateT) 0, symbolP,
+			(offsetT) size, (char *) 0);
+      *pfrag = 0;
+
+      S_SET_SIZE       (symbolP, size);
+      S_SET_SEGMENT    (symbolP, bss_section);
+      S_CLEAR_EXTERNAL (symbolP);
+      symbol_get_obj (symbolP)->local = 1;
+      subseg_set (old_sec, old_subsec);
+    }
+  else
+    {
+      S_SET_VALUE    (symbolP, (valueT) size);
+      S_SET_ALIGN    (symbolP, align);
+      S_SET_EXTERNAL (symbolP);
+      S_SET_SEGMENT  (symbolP, bfd_com_section_ptr);
+    }
+
+  symbolP->bsym->flags |= BSF_OBJECT;
+
+  demand_empty_rest_of_line ();
+}
+
 
 /* Smartly print an expression. */
-void debug_exp (expressionS *t)
+static void
+debug_exp (expressionS *t)
 {
   const char *name;
   const char *namemd;
@@ -557,6 +731,12 @@ md_begin (void)
   /* The endianness can be chosen "at the factory".  */
   target_big_endian = byte_order == BIG_ENDIAN;
 
+  if (!bfd_set_arch_mach (stdoutput, bfd_arch_arc, arc_mach_type))
+    as_warn (_("could not set architecture and machine"));
+
+  /* Set elf header flags. */
+  bfd_set_private_flags(stdoutput, arc_eflag);
+
   /* Set up a hash table for the instructions.  */
   arc_opcode_hash = hash_new ();
   if (arc_opcode_hash == NULL)
@@ -593,9 +773,7 @@ md_begin (void)
 }
 
 /* Write a value out to the object file, using the appropriate
-   endianness.  The size (N) -4 is used internally in tc-arc.c to
-   indicate a 4-byte limm value, which is encoded as 'middle-endian'
-   for a little-endian target.  */
+   endianness. */
 void
 md_number_to_chars (char *buf,
 		    valueT val,
@@ -670,59 +848,153 @@ md_pcrel_from_section (fixS *fixP, segT sec)
    and put it back in the fixup. To indicate that a fixup has been
    eliminated, set fixP->fx_done. */
 void
-md_apply_fix (fixS *fixP, valueT *valP, segT seg ATTRIBUTE_UNUSED)
+md_apply_fix (fixS *fixP, valueT *valP, segT seg)
 {
   char * const fixpos = fixP->fx_frag->fr_literal + fixP->fx_where;
   valueT value = *valP;
   unsigned insn = 0;
+  symbolS *fx_addsy, *fx_subsy;
+  offsetT fx_offset;
+  segT add_symbol_segment = absolute_section;
+  segT sub_symbol_segment = absolute_section;
 
   pr_debug("%s:%u: apply_fix: r_type=%d value=%lx offset=%lx\n",
 	   fixP->fx_file, fixP->fx_line, fixP->fx_r_type, value,
 	   fixP->fx_offset);
 
-  switch (fixP->fx_r_type)
+  fx_addsy = fixP->fx_addsy;
+  fx_subsy = fixP->fx_subsy;
+  fx_offset = fixP->fx_offset;
+
+  if (fx_addsy)
     {
-    case BFD_RELOC_ARC_32_ME:
-      if (fixP->fx_pcrel)
+      add_symbol_segment = S_GET_SEGMENT (fx_addsy);
+    }
+
+  if (fx_subsy)
+    {
+      resolve_symbol_value(fx_subsy);
+      sub_symbol_segment = S_GET_SEGMENT(fx_subsy);
+
+      if (sub_symbol_segment == absolute_section)
 	{
-	  fixP->fx_r_type = BFD_RELOC_ARC_PC32;
+	  /* The symbol is really a constant. */
+	  fx_offset -= S_GET_VALUE (fx_subsy);
+	  fx_subsy = NULL;
 	}
       else
 	{
-	  fixP->fx_done = 1;
-	  insn = value;
+	  as_bad_where(fixP->fx_file, fixP->fx_line,
+		       _("can't resolve `%s' {%s section} - `%s' {%s section}"),
+		       fx_addsy ? S_GET_NAME (fx_addsy) : "0",
+		       segment_name (add_symbol_segment),
+		       S_GET_NAME (fx_subsy),
+		       segment_name (sub_symbol_segment));
+	  return;
 	}
-      break;
-     default:
-      {
-	const struct arc_operand *operand;
-
-	if (fixP->fx_pcrel)
-	  as_fatal (_("PC relative relocation not allowed for type %s"),
-		    bfd_get_reloc_code_name (fixP->fx_r_type));
-
-	if ((int) fixP->fx_r_type >= 0)
-	  as_fatal (_("unhandled relocation type %s"),
-		    bfd_get_reloc_code_name (fixP->fx_r_type));
-
-	gas_assert (-(int) fixP->fx_r_type < (int) arc_num_operands);
-	operand = &arc_operands[-(int) fixP->fx_r_type];
-
-	/* The rest of these fixups needs to be completely resolved as
-	   constants. */
-	if (fixP->fx_addsy != 0
-	    && S_GET_SEGMENT (fixP->fx_addsy) != absolute_section)
-	  as_bad_where (fixP->fx_file, fixP->fx_line,
-			_("non-absolute expression in constant field"));
-
-	insn = bfd_getb32 (fixpos); //FIXME: endianess
-	insn = insert_operand (insn, operand, (offsetT) value,
-			       fixP->fx_file, fixP->fx_line);
-	fixP->fx_done = 1;
-      }
     }
 
-  md_number_to_chars (fixpos, insn, fixP->fx_size);
+  if (fx_addsy)
+    {
+      if (add_symbol_segment == seg
+	  && fixP->fx_pcrel)
+	{
+	  value += S_GET_VALUE (fx_addsy);
+	  value -= md_pcrel_from_section(fixP, seg);
+	  fx_addsy = NULL;
+	  fixP->fx_pcrel = FALSE;
+	}
+      else if (add_symbol_segment == absolute_section)
+	{
+	  fx_offset += S_GET_VALUE(fixP->fx_addsy);
+	  fx_addsy = NULL;
+	}
+    }
+
+  if (!fx_addsy)
+      fixP->fx_done = TRUE;
+
+  if (fixP->fx_pcrel)
+    {
+      if (fx_addsy
+	  && ((S_IS_DEFINED (fx_addsy)
+	       && S_GET_SEGMENT (fx_addsy) != seg)
+	      || S_IS_WEAK (fx_addsy)))
+	value += md_pcrel_from_section(fixP, seg);
+
+      switch (fixP->fx_r_type)
+	{
+	case BFD_RELOC_ARC_32_ME:
+	  fixP->fx_r_type = BFD_RELOC_ARC_PC32;
+	  break;
+	default:
+	  if ((int) fixP->fx_r_type < 0)
+	    as_fatal (_("PC relative relocation not allowed for (internal) type %d"),
+		      fixP->fx_r_type);
+	  break;
+	}
+    }
+
+  if (fixP->fx_done)
+    {
+      value += fx_offset;
+
+      /* For hosts with longs bigger than 32-bits make sure that the top
+         bits of a 32-bit negative value read in by the parser are set,
+         so that the correct comparisons are made.  */
+      if (value & 0x80000000)
+        value |= (-1L << 31);
+
+      switch (fixP->fx_r_type)
+	{
+	case BFD_RELOC_ARC_32_ME:
+	  insn = value;
+	  md_number_to_chars_midend (fixpos, insn, fixP->fx_size);
+	  break;
+	default:
+	  {
+	    const struct arc_operand *operand;
+
+	    if ((int) fixP->fx_r_type >= 0)
+	      as_fatal (_("unhandled relocation type %s"),
+			bfd_get_reloc_code_name (fixP->fx_r_type));
+
+	    /* The rest of these fixups needs to be completely resolved as
+	       constants. */
+	    if (fixP->fx_addsy != 0
+		&& S_GET_SEGMENT (fixP->fx_addsy) != absolute_section)
+	      as_bad_where (fixP->fx_file, fixP->fx_line,
+			    _("non-absolute expression in constant field"));
+
+	    gas_assert (-(int) fixP->fx_r_type < (int) arc_num_operands);
+	    operand = &arc_operands[-(int) fixP->fx_r_type];
+
+	    if (target_big_endian)
+	      insn = bfd_getb32 (fixpos);
+	    else
+	      {
+		insn = 0;
+		switch (fixP->fx_size)
+		  {
+		  case 4:
+		    insn = bfd_getl16 (fixpos) << 16 | bfd_getl16 (fixpos + 2);
+		    break;
+		  case 2:
+		    insn = bfd_getl16 (fixpos);
+		    break;
+		  default:
+		    as_bad_where (fixP->fx_file, fixP->fx_line,
+				  _("unknown fixup size"));
+		  }
+	      }
+
+	    insn = insert_operand (insn, operand, (offsetT) value,
+				   fixP->fx_file, fixP->fx_line);
+
+	    md_number_to_chars_midend (fixpos, insn, fixP->fx_size);
+	  }
+	}
+    }
 }
 
 /* Prepare machine-dependent frags for relaxation.
@@ -840,12 +1112,60 @@ md_undefined_symbol (char *name)
   return NULL;
 }
 
+/* Turn a string in input_line_pointer into a floating point constant
+   of type type, and store the appropriate bytes in *litP.  The number
+   of LITTLENUMS emitted is stored in *sizeP .  An error message is
+   returned, or NULL on OK. */
+
+/* Equal to MAX_PRECISION in atof-ieee.c */
+#define MAX_LITTLENUMS 6
+
 char *
-md_atof (int type ATTRIBUTE_UNUSED,
-	 char *litP ATTRIBUTE_UNUSED,
-	 int *sizeP ATTRIBUTE_UNUSED)
+md_atof (int type,
+	 char *litP,
+	 int *sizeP)
 {
-  return 0x00;
+  int              i;
+  int              prec;
+  LITTLENUM_TYPE   words [MAX_LITTLENUMS];
+  char *           t;
+
+  switch (type)
+  {
+    case 'f':
+    case 'F':
+    case 's':
+    case 'S':
+      prec = 2;
+      break;
+
+    case 'd':
+    case 'D':
+    case 'r':
+    case 'R':
+      prec = 4;
+      break;
+
+      /* FIXME: Some targets allow other format chars for bigger sizes here.  */
+
+    default:
+      * sizeP = 0;
+      return _("Bad call to md_atof()");
+  }
+
+  t = atof_ieee (input_line_pointer, type, words);
+  if (t)
+    input_line_pointer = t;
+  * sizeP = prec * sizeof (LITTLENUM_TYPE);
+
+  for (i = 0; i < prec; i++)
+  {
+    md_number_to_chars (litP, (valueT) words[i],
+                        sizeof (LITTLENUM_TYPE));
+    litP += sizeof (LITTLENUM_TYPE);
+  }
+
+  return 0;
 }
 
 /* Called for any expression that can not be recognized.  When the
@@ -874,9 +1194,52 @@ md_operand (expressionS *expressionP ATTRIBUTE_UNUSED)
 	      arc700, av2em, av2hs.
 */
 int
-md_parse_option (int c ATTRIBUTE_UNUSED, char *arg ATTRIBUTE_UNUSED)
+md_parse_option (int c, char *arg ATTRIBUTE_UNUSED)
 {
-  return 0;
+  int cpu_flags = 0;
+
+  switch (c)
+    {
+    case OPTION_MCPU:
+      {
+	int i;
+	char *s = alloca (strlen (arg) + 1);
+
+	{
+	  char *t = s;
+	  char *arg1 = arg;
+
+	  do
+	    *t = TOLOWER (*arg1++);
+	  while (*t++);
+	}
+
+	for (i = 0; cpu_types[i].name; ++i)
+	  if (strcmp (cpu_types[i].name, s) == 0)
+	    break;
+
+	if (!cpu_types[i].name)
+	  {
+	    as_fatal (_("unknown architecture: %s\n"), arg);
+	  }
+
+	/* FIXME cpu_flags */
+	break;
+      }
+    case OPTION_EB:
+      arc_target_format = "elf32-bigarc";
+      byte_order = BIG_ENDIAN;
+      break;
+    case OPTION_EL:
+      arc_target_format = "elf32-littlearc";
+      byte_order = LITTLE_ENDIAN;
+      break;
+
+    default:
+      return 0;
+    }
+
+  return 1;
 }
 
 void
@@ -884,7 +1247,7 @@ md_show_usage (FILE *stream)
 {
   fprintf (stream, _("ARC-specific assembler options:\n"));
 
-  fprintf (stream, "  -mcpu=<cpu name>\t assemble for CPU <cpu name>\n");
+  fprintf (stream, "  -mcpu=<cpu name>\t  assemble for CPU <cpu name>\n");
 
   fprintf (stream, _("\
   -EB                     assemble code for a big-endian cpu\n"));
@@ -1289,7 +1652,7 @@ emit_insn (struct arc_insn *insn)
 	{
 	  f = frag_more (6);
 	  md_number_to_chars (f, insn->insn, 2);
-	  md_number_to_chars (f + 2, insn->limm, 4);
+	  md_number_to_chars_midend (f + 2, insn->limm, 4);
 	  offset = 2;
 	  dwarf2_emit_insn (6);
 	}
@@ -1305,15 +1668,15 @@ emit_insn (struct arc_insn *insn)
       if (insn->has_limm)
 	{
 	  f = frag_more (8);
-	  md_number_to_chars (f, insn->insn, 4);
-	  md_number_to_chars (f + 4, insn->limm, 4);
+	  md_number_to_chars_midend (f, insn->insn, 4);
+	  md_number_to_chars_midend (f + 4, insn->limm, 4);
 	  offset = 4;
 	  dwarf2_emit_insn (8);
 	}
       else
 	{
 	  f = frag_more (4);
-	  md_number_to_chars (f, insn->insn, 4);
+	  md_number_to_chars_midend (f, insn->insn, 4);
 	  dwarf2_emit_insn (4);
 	}
     }
@@ -1360,10 +1723,10 @@ insert_operand (unsigned insn,
 		char *file,
 		unsigned line)
 {
+  offsetT min = 0, max = 0;
+
   if (operand->bits != 32 && !(operand->flags & ARC_OPERAND_FAKE))
     {
-      offsetT min, max;
-
       /*FIXME*/
       if (operand->flags & ARC_OPERAND_SIGNED)
 	{
@@ -1379,6 +1742,9 @@ insert_operand (unsigned insn,
       if (val < min || val > max)
 	as_bad_value_out_of_range (_("operand"), val, min, max, file, line);
     }
+
+  pr_debug("insert field: %ld <= %ld <= %ld in 0x%08x\n",
+	   min, val, max, insn);
 
   if (operand->insert)
     {
