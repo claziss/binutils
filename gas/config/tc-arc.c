@@ -168,8 +168,8 @@ static const struct cpu_type
 }
 cpu_types[] =
 {
-  { "arcv2em", ARC_OPCODE_BASE | ARC_OPCODE_ARCv2 },
-  { "arcv2hs", ARC_OPCODE_BASE | ARC_OPCODE_ARCv2 },
+  { "arcv2em", ARC_OPCODE_BASE  },
+  { "arcv2hs", ARC_OPCODE_BASE  },
   { "all", ARC_OPCODE_BASE },
   { 0, 0 }
 };
@@ -1409,6 +1409,10 @@ find_opcode_match (const struct arc_opcode *first_opcode,
 
 		      if (val < min || val > max)
 			goto match_failed;
+
+		      if ((operand->flags & ARC_OPERAND_ALIGNED32)
+			  && (val & 0x03))
+			goto match_failed;
 		    }
 		  break;
 
@@ -1746,6 +1750,10 @@ insert_operand (unsigned insn,
   pr_debug("insert field: %ld <= %ld <= %ld in 0x%08x\n",
 	   min, val, max, insn);
 
+  if ((operand->flags & ARC_OPERAND_ALIGNED32)
+      && (val & 0x03))
+    as_bad (_("Unaligned operand."));
+
   if (operand->insert)
     {
       const char *errmsg = NULL;
@@ -1755,7 +1763,12 @@ insert_operand (unsigned insn,
 	as_warn ("%s", errmsg);
     }
   else
-    insn |= ((val & ((1 << operand->bits) - 1)) << operand->shift);
+    {
+      if ((operand->flags & ARC_OPERAND_ALIGNED32)
+	  && !(val & 0x03))
+	val >>=2;
+      insn |= ((val & ((1 << operand->bits) - 1)) << operand->shift);
+    }
 
   return insn;
 }
