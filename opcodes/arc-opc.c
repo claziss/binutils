@@ -144,9 +144,301 @@ extract_simm12 (unsigned insn,
   return value;
 }
 
+
+/* Insert the unsigned 6-bit immediate. */
+static unsigned
+insert_uimm6s (unsigned insn,
+	     int value,
+	     const char **errmsg)
+{
+  insn |= ((value & 0x38) << 1) | (value & 0x03);
+
+  return insn;
+}
+
+/* Extract unsigned 6-bit immediate */
+static int
+extract_uimm6s (unsigned insn,
+		int *invalid)
+{
+  int value = ((insn & 0x30) >> 1) | (insn & 0x03);
+
+  return value;
+}
+
+
+/* Insert H register into a 16-bit opcode. */
+static unsigned
+insert_rhv1 (unsigned insn,
+	   int value,
+	   const char **errmsg ATTRIBUTE_UNUSED)
+{
+  return insn |= ((value & 0x07) << 5) | ((value >> 3) & 0x07);
+}
+
+static int
+extract_rhv1 (unsigned insn,
+	      int *invalid ATTRIBUTE_UNUSED)
+{
+  int value = 0;
+
+  return value;
+}
+
+/* Insert H register into a 16-bit opcode. */
+static unsigned
+insert_rhv2 (unsigned insn,
+	   int value,
+	   const char **errmsg ATTRIBUTE_UNUSED)
+{
+  return insn |= ((value & 0x07) << 5) | ((value >> 3) & 0x03);
+}
+
+static int
+extract_rhv2 (unsigned insn ATTRIBUTE_UNUSED,
+	      int *invalid ATTRIBUTE_UNUSED)
+{
+  int value = 0;
+
+  return value;
+}
+
+
+static unsigned
+insert_r0 (unsigned insn,
+	   int value,
+	   const char **errmsg ATTRIBUTE_UNUSED)
+{
+  if (value != 0)
+    *errmsg = _("Register must be R0.");
+  return insn;
+}
+
+static int
+extract_r0 (unsigned insn ATTRIBUTE_UNUSED,
+	      int *invalid ATTRIBUTE_UNUSED)
+{
+  return 0;
+}
+
+
+static unsigned
+insert_r1 (unsigned insn,
+	   int value,
+	   const char **errmsg ATTRIBUTE_UNUSED)
+{
+  if (value != 1)
+    *errmsg = _("Register must be R1.");
+  return insn;
+}
+
+static int
+extract_r1 (unsigned insn ATTRIBUTE_UNUSED,
+	      int *invalid ATTRIBUTE_UNUSED)
+{
+  return 1;
+}
+
+static unsigned
+insert_r2 (unsigned insn,
+	   int value,
+	   const char **errmsg ATTRIBUTE_UNUSED)
+{
+  if (value != 2)
+    *errmsg = _("Register must be R2.");
+  return insn;
+}
+
+static int
+extract_r2 (unsigned insn ATTRIBUTE_UNUSED,
+	      int *invalid ATTRIBUTE_UNUSED)
+{
+  return 2;
+}
+
+static unsigned
+insert_r3 (unsigned insn,
+	   int value,
+	   const char **errmsg ATTRIBUTE_UNUSED)
+{
+  if (value != 3)
+    *errmsg = _("Register must be R3.");
+  return insn;
+}
+
+static int
+extract_r3 (unsigned insn ATTRIBUTE_UNUSED,
+	      int *invalid ATTRIBUTE_UNUSED)
+{
+  return 3;
+}
+
+static unsigned
+insert_sp (unsigned insn,
+	   int value,
+	   const char **errmsg ATTRIBUTE_UNUSED)
+{
+  if (value != 28)
+    *errmsg = _("Register must be SP.");
+  return insn;
+}
+
+static int
+extract_sp (unsigned insn ATTRIBUTE_UNUSED,
+	      int *invalid ATTRIBUTE_UNUSED)
+{
+  return 28;
+}
+
+static unsigned
+insert_gp (unsigned insn,
+	   int value,
+	   const char **errmsg ATTRIBUTE_UNUSED)
+{
+  if (value != 26)
+    *errmsg = _("Register must be GP.");
+  return insn;
+}
+
+static int
+extract_gp (unsigned insn ATTRIBUTE_UNUSED,
+	    int *invalid ATTRIBUTE_UNUSED)
+{
+  return 26;
+}
+
+static unsigned
+insert_blink (unsigned insn,
+	      int value,
+	      const char **errmsg ATTRIBUTE_UNUSED)
+{
+  if (value != 31)
+    *errmsg = _("Register must be BLINK.");
+  return insn;
+}
+
+static int
+extract_blink (unsigned insn ATTRIBUTE_UNUSED,
+	       int *invalid ATTRIBUTE_UNUSED)
+{
+  return 31;
+}
+
+
+static unsigned
+insert_ras (unsigned insn,
+	      int value,
+	      const char **errmsg ATTRIBUTE_UNUSED)
+{
+  switch (value)
+    {
+    case 0:
+    case 1:
+    case 2:
+    case 3:
+      insn |= value;
+      break;
+    case 12:
+    case 13:
+    case 14:
+    case 15:
+      insn |= (value - 8);
+      break;
+    default:
+      *errmsg = _("Register must be either r0-r3 or r12-r15.");
+      break;
+    }
+  return insn;
+}
+
+static int
+extract_ras (unsigned insn ATTRIBUTE_UNUSED,
+	     int *invalid ATTRIBUTE_UNUSED)
+{
+  int value = insn & 0x07;
+  if (value > 3)
+    return (value + 8);
+  else
+    return value;
+}
+
+static unsigned
+insert_rbs (unsigned insn,
+	      int value,
+	      const char **errmsg ATTRIBUTE_UNUSED)
+{
+  switch (value)
+    {
+    case 0:
+    case 1:
+    case 2:
+    case 3:
+      insn |= value << 8;
+      break;
+    case 12:
+    case 13:
+    case 14:
+    case 15:
+      insn |= ((value - 8)) << 8;
+      break;
+    default:
+      *errmsg = _("Register must be either r0-r3 or r12-r15.");
+      break;
+    }
+  return insn;
+}
+
+static int
+extract_rbs (unsigned insn ATTRIBUTE_UNUSED,
+	     int *invalid ATTRIBUTE_UNUSED)
+{
+  int value = (insn >> 8) & 0x07;
+  if (value > 3)
+    return (value + 8);
+  else
+    return value;
+}
+
+static unsigned
+insert_rcs (unsigned insn,
+	      int value,
+	      const char **errmsg ATTRIBUTE_UNUSED)
+{
+  switch (value)
+    {
+    case 0:
+    case 1:
+    case 2:
+    case 3:
+      insn |= value << 5;
+      break;
+    case 12:
+    case 13:
+    case 14:
+    case 15:
+      insn |= ((value - 8)) << 5;
+      break;
+    default:
+      *errmsg = _("Register must be either r0-r3 or r12-r15.");
+      break;
+    }
+  return insn;
+}
+
+static int
+extract_rcs (unsigned insn ATTRIBUTE_UNUSED,
+	     int *invalid ATTRIBUTE_UNUSED)
+{
+  int value = (insn >> 5) & 0x07;
+  if (value > 3)
+    return (value + 8);
+  else
+    return value;
+}
+
+
 /* Abbreviations for instruction subsets.  */
 #define BASE			ARC_OPCODE_BASE
-#define EM			ARC_OPCODE_ARCv2
 
 /* The flag operands table.
 
@@ -318,9 +610,9 @@ const struct arc_flag_class arc_flag_classes[] =
     { 0, { F_FLAG, F_NULL } },
 
 #define C_T         (C_F + 1)
-    { 0, { F_NT, F_T } },
+    { 0, { F_NT, F_T, F_NULL } },
 #define C_D         (C_T + 1)
-    { 0, { F_ND, F_D } },
+    { 0, { F_ND, F_D, F_NULL } },
   };
 
 /* Common combinations of FLAGS.  */
@@ -341,7 +633,7 @@ const struct arc_operand arc_operands[] =
     /* The zero index is used to indicate end-of-list */
 #define UNUSED		0
     { 0, 0, 0, 0, 0, 0 },
-    /* The plain integer register fields. */
+    /* The plain integer register fields. Used by 32 bit instructions. */
 #define RA		(UNUSED + 1)
     { 6, 0, 0, ARC_OPERAND_IR, 0, 0 },
 #define RB		(RA + 1)
@@ -351,8 +643,43 @@ const struct arc_operand arc_operands[] =
 #define RBdup 		(RC + 1)
     { 6, 12, 0, ARC_OPERAND_IR | ARC_OPERAND_DUPLICATE, insert_rb, extract_rb },
 
+    /* The plain integer register fields. Used by short instructions. */
+#define RA16		(RBdup + 1)
+    { 4, 0, 0, ARC_OPERAND_IR, insert_ras, extract_ras },
+#define RB16		(RA16 + 1)
+    { 4, 8, 0, ARC_OPERAND_IR, insert_rbs, extract_rbs },
+#define RB16dup		(RB16 + 1)
+    { 4, 8, 0, ARC_OPERAND_IR | ARC_OPERAND_DUPLICATE, insert_rbs, extract_rbs },
+#define RC16		(RB16dup + 1)
+    { 4, 5, 0, ARC_OPERAND_IR, insert_rcs, extract_rcs },
+#define R6H             (RC16 + 1)   /* 6bit register field 'h' used by V1 cpus*/
+    { 6, 5, 0, ARC_OPERAND_IR, insert_rhv1, extract_rhv1 },
+#define R5H             (R6H + 1)    /* 5bit register field 'h' used by V2 cpus*/
+    { 5, 5, 0, ARC_OPERAND_IR, insert_rhv2, extract_rhv2 },
+#define R5Hdup          (R5H + 1)
+    { 5, 5, 0, ARC_OPERAND_IR | ARC_OPERAND_DUPLICATE, insert_rhv2, extract_rhv2 },
+
+    /* Fix registers. */
+#define R0              (R5Hdup + 1)
+    { 0, 0, 0, ARC_OPERAND_IR, insert_r0, extract_r0 },
+#define R1              (R0 + 1)
+    { 1, 0, 0, ARC_OPERAND_IR, insert_r1, extract_r1 },
+#define R2              (R1 + 1)
+    { 2, 0, 0, ARC_OPERAND_IR, insert_r2, extract_r2 },
+#define R3              (R2 + 1)
+    { 2, 0, 0, ARC_OPERAND_IR, insert_r3, extract_r3 },
+#define SP              (R3 + 1)
+    { 5, 0, 0, ARC_OPERAND_IR, insert_sp, extract_sp },
+#define SPdup           (SP + 1)
+    { 5, 0, 0, ARC_OPERAND_IR | ARC_OPERAND_DUPLICATE, insert_sp, extract_sp },
+#define GP              (SPdup + 1)
+    { 5, 0, 0, ARC_OPERAND_IR, insert_gp, extract_gp },
+#define BLINK           (GP + 1)
+    { 5, 0, 0, ARC_OPERAND_IR, insert_blink, extract_blink },
+
+
     /* Long immediate. */
-#define LIMM 		(RBdup + 1)
+#define LIMM 		(BLINK + 1)
     { 32, 0, BFD_RELOC_ARC_32_ME, ARC_OPERAND_LIMM, insert_limm, 0 },
 #define LIMMdup		(LIMM + 1)
     { 32, 0, 0, ARC_OPERAND_LIMM | ARC_OPERAND_DUPLICATE, insert_limm, 0 },
@@ -374,6 +701,24 @@ const struct arc_operand arc_operands[] =
     /* 12-bit signed immediate value */
 #define SIMM12          (UIMM6 + 1)
     { 12, 6, 0, ARC_OPERAND_SIGNED, insert_simm12, extract_simm12 },
+    /* The unsigned 7-bit immediate. */
+#define UIMM7           (SIMM12 + 1)
+    { 7, 0, 0, ARC_OPERAND_UNSIGNED, 0, 0 },
+    /* The unsigned 7-bit immediate. */
+#define UIMM7S32        (UIMM7 + 1)
+    { 7, 0, 0, ARC_OPERAND_UNSIGNED | ARC_OPERAND_ALIGNED32, 0, 0 },
+    /* The signed 3-bit immediate used by short insns. */
+#define SIMM3           (UIMM7S32 + 1)
+    { 3, 8, 0, ARC_OPERAND_SIGNED, 0, 0 },
+    /* The unsigned 6-bit immediate used by short insns. */
+#define UIMM6S          (SIMM3 + 1)
+    { 6, 0, 0, ARC_OPERAND_UNSIGNED, insert_uimm6s, extract_uimm6s },
+    /* The signed 11-bit immediate used by short insns, 32bit aligned! */
+#define SIMM11S32       (UIMM6S + 1)
+    { 11, 0, 0, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED32, 0, 0 },
+    /* The unsigned 3-bit immediate used by short insns. */
+#define UIMM3S          (SIMM11S32 + 1)
+    { 3, 0, 0, ARC_OPERAND_UNSIGNED, 0, 0 },
 
   };
 const unsigned arc_num_operands = sizeof(arc_operands)/sizeof(*arc_operands);
@@ -468,6 +813,20 @@ const struct arc_opcode arc_opcodes[] =
 
 /* add<.cc><.f>    0,limm,limm 	0010 0110 1100 0000 F111 1111 100Q QQQQ  */
 { "add", 0x26C07F80, 0xFFFF7FE0, BASE, ARG_32BIT_ZALIMMLIMM, FLAGS_CCF },
+
+
+{"add_s",       0x00006018, 0x0000F818, ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS | ARC_OPCODE_ARC700 | ARC_OPCODE_ARC600, { RA16, RB16, RC16 }, { NULL } },
+{"add_s",       0x00007000, 0x0000F81C, ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS, { RB16, RB16dup, R5H }, { NULL } },
+{"add_s",       0x00007004, 0x0000F81C, ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS, { R5H, R5Hdup, SIMM3 }, { NULL } },
+{"add_s",       0x000070C7, 0x0000F8FF, ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS, { ZA, LIMM, SIMM3 }, { NULL } },
+{"add_s",       0x0000C080, 0x0000F8E0, ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS | ARC_OPCODE_ARC700 | ARC_OPCODE_ARC600, { RB16, SP, UIMM7S32 }, { NULL } },
+{"add_s",       0x0000E000, 0x0000F880, ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS | ARC_OPCODE_ARC700 | ARC_OPCODE_ARC600, { RB16, RB16dup, UIMM7 }, { NULL } },
+{"add_s",       0x00006800, 0x0000F818, ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS | ARC_OPCODE_ARC700 | ARC_OPCODE_ARC600, { RC16, RB16, UIMM3S }, { NULL } },
+{"add_s",       0x0000C0A0, 0x0000FFE0, ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS | ARC_OPCODE_ARC700 | ARC_OPCODE_ARC600, { SP, SP, UIMM7S32 }, { NULL } },
+{"add_s",       0x0000CE00, 0x0000FE00, ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS | ARC_OPCODE_ARC700 | ARC_OPCODE_ARC600, { R0, GP, SIMM11S32 }, { NULL } },
+{"add_s",       0x00004808, 0x0000F888, (ARC_OPCODE_ARCv2EM) | ARC_OPCODE_ARCv2HS, { R0, RB16, UIMM6S }, { NULL } },
+{"add_s",       0x00004888, 0x0000F888, (ARC_OPCODE_ARCv2EM) | ARC_OPCODE_ARCv2HS, { R1, RB16, UIMM6S }, { NULL } },
+{"add_s",       0x000070C3, 0x0000F8FF, ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS, { RB16, RB16dup, LIMM }, { NULL } },
 
     { "nop", 0x264A7000, 0xFFFFFFFF, BASE, ARG_NONE, FLAGS_NONE },
     { "nop_s", 0x78E0, 0xFFFF, BASE, ARG_NONE, FLAGS_NONE },
