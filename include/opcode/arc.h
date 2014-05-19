@@ -62,9 +62,54 @@ extern const struct arc_opcode arc_opcodes[];
 extern const unsigned arc_num_opcodes;
 
 /* CPU Availability */
-#define ARC_OPCODE_BASE    0x0001  /* Base architecture -- all cpus.  */
-#define ARC_OPCODE_ARCv1   0x0002  /* ARCv1 specific insns.  */
-#define ARC_OPCODE_ARCv2   0x0004  /* ARCv2 specific insns.  */
+#define ARC_OPCODE_ARC600   0x0001  /* ARC 600 specific insns.  */
+#define ARC_OPCODE_ARC700   0x0002  /* ARC 700 specific insns.  */
+#define ARC_OPCODE_ARCv2EM  0x0004  /* ARCv2 EM specific insns.  */
+#define ARC_OPCODE_ARCv2HS  0x0008  /* ARCv2 HS specific insns.  */
+
+/* CPU extensions */
+#define ARC_EA       0x0010
+#define ARC_CD       0x0010    /* Mutual exclusive with EA. */
+#define ARC_LLOCK    0x0020
+#define ARC_ATOMIC   0x0020    /* Mutual exclusive with LLOCK.*/
+#define ARC_MPY      0x0100
+#define ARC_MULT     0x0100
+
+/* Floating point support. */
+#define ARC_DPFP     0x0040
+#define ARC_SPFP     0x0040
+#define ARC_FPU      0x0040
+
+/* NORM & SWAP */
+#define ARC_SWAP     0x0080
+#define ARC_NORM     0x0080
+#define ARC_BSCAN    0x0080
+
+/* A7 specific */
+#define ARC_UIX      0x1000
+#define ARC_TSTAMP   0x1000
+
+/* A6 specific */
+#define ARC_VBFDW    0x1000
+#define ARC_BARREL   0x1000
+#define ARC_DSPA     0x1000
+
+/* EM specific */
+#define ARC_SHIFT    0x1000
+
+/* V2 specific */
+#define ARC_INTR     0x1000
+#define ARC_DIV      0x1000
+
+/* V1 specific */
+#define ARC_XMAC     0x1000
+#define ARC_CRC      0x1000
+
+
+/* Base architecture -- all cpus.  */
+#define ARC_OPCODE_BASE				\
+  (ARC_OPCODE_ARC600 | ARC_OPCODE_ARC700	\
+   | ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS)
 
 /* The operands table is an array of struct arc_operand.  */
 struct arc_operand
@@ -133,35 +178,35 @@ extern const unsigned arc_fake_idx_Toperand;
    any op value.  The disassembler should call the extract function,
    ignore the return value, and check the value placed in the invalid
    argument.  */
-#define ARC_OPERAND_FAKE	01
+#define ARC_OPERAND_FAKE	0x0001
 
 /* This operand names an integer register.  */
-#define ARC_OPERAND_IR		02
+#define ARC_OPERAND_IR		0x0002
 
 /* This operand takes signed values.  */
-#define ARC_OPERAND_SIGNED	04
+#define ARC_OPERAND_SIGNED	0x0004
 
 /* This operand takes unsigned values.  This exists primarily so that
    a flags value of 0 can be treated as end-of-arguments.  */
-#define ARC_OPERAND_UNSIGNED	010
+#define ARC_OPERAND_UNSIGNED	0x0008
 
 /* This operand takes long immediate values. */
-#define ARC_OPERAND_LIMM	020
+#define ARC_OPERAND_LIMM	0x0010
 
 /* This operand is identical like the previous one. */
-#define ARC_OPERAND_DUPLICATE   0100
+#define ARC_OPERAND_DUPLICATE   0x0020
 
 /* This operand is PC relative. Used for internal relocs. */
-#define ARC_OPERAND_PCREL       0200
+#define ARC_OPERAND_PCREL       0x0040
+
+/* This operand is 32bit aligned. */
+#define ARC_OPERAND_ALIGNED32   0x0080
 
 /* Mask for selecting the type for typecheck purposes */
 #define ARC_OPERAND_TYPECHECK_MASK		\
   (ARC_OPERAND_IR |				\
    ARC_OPERAND_LIMM | ARC_OPERAND_SIGNED | 	\
    ARC_OPERAND_UNSIGNED)
-
-/* Mask for optional argument default value.  */
-#define ARC_OPERAND_OPTIONAL_MASK 07000
 
 /* The flags structure  */
 struct arc_flag_operand
