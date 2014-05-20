@@ -151,7 +151,7 @@ insert_uimm6s (unsigned insn,
 	     int value,
 	     const char **errmsg)
 {
-  insn |= ((value & 0x38) << 1) | (value & 0x03);
+  insn |= ((value & 0x38) << 1) | (value & 0x07);
 
   return insn;
 }
@@ -161,7 +161,7 @@ static int
 extract_uimm6s (unsigned insn,
 		int *invalid)
 {
-  int value = ((insn & 0x30) >> 1) | (insn & 0x03);
+  int value = ((insn & 0x70) >> 1) | (insn & 0x07);
 
   return value;
 }
@@ -198,7 +198,7 @@ static int
 extract_rhv2 (unsigned insn ATTRIBUTE_UNUSED,
 	      int *invalid ATTRIBUTE_UNUSED)
 {
-  int value = 0;
+  int value = (insn >> 5) & 0x07 | ((insn & 0x03) << 3);
 
   return value;
 }
@@ -719,6 +719,9 @@ const struct arc_operand arc_operands[] =
     /* The unsigned 3-bit immediate used by short insns. */
 #define UIMM3S          (SIMM11S32 + 1)
     { 3, 0, 0, ARC_OPERAND_UNSIGNED, 0, 0 },
+    /* The unsigned 5-bit immediate used by short insns. */
+#define UIMM5S          (UIMM3S + 1)
+    { 5, 0, 0, ARC_OPERAND_UNSIGNED, 0, 0 },
 
   };
 const unsigned arc_num_operands = sizeof(arc_operands)/sizeof(*arc_operands);
