@@ -29,12 +29,28 @@ static const char * const regnames[32] = {
   "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7",
   "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15",
   "r16", "r17", "r18", "r19", "r20", "r21", "r22", "r23",
-  "r24", "r25", "r26", "r27", "r28", "r29", "r30", "r31"
+  "r24", "r25", "gp", "fp", "sp", "ilink", "r30", "blink"
 };
 
+/**************************************************************************/
+/* Defines                                                                */
+/**************************************************************************/
+
+//#define DEBUG
+
+/**************************************************************************/
+/* Macros                                                                 */
+/**************************************************************************/
+
+#ifdef DEBUG
+# define pr_debug(fmt, args...) fprintf(stderr, fmt, ##args)
+#else
+# define pr_debug(fmt, args...)
+#endif
 
 #define ARRANGE_ENDIAN(info, buf)					\
-  info->endian == BFD_ENDIAN_LITTLE ? bfd_getl32(buf) : bfd_getb32(buf)
+  (info->endian == BFD_ENDIAN_LITTLE ? bfd_getm32 (bfd_getl32 (buf))	\
+   : bfd_getb32(buf))
 
 #define BITS(word,s,e)  (((word) << (sizeof(word)*8-1 - e)) >> (s + (sizeof(word)*8-1 - e)))
 #define OPCODE(word)	(BITS ((word), 27, 31))
@@ -42,6 +58,9 @@ static const char * const regnames[32] = {
 #define FIELDB(word)	(BITS ((word), 15, 20))
 #define FIELDC(word)	(BITS ((word),  9, 14))
 
+/**************************************************************************/
+/* Functions implementation                                               */
+/**************************************************************************/
 static bfd_vma
 bfd_getm32 (unsigned int data)
 {
@@ -103,10 +122,6 @@ print_insn_arc (bfd_vma memaddr,
 	  return -1;
 	}
       insn[0] = ARRANGE_ENDIAN (info, buffer);
-
-      /* Do the correction. */
-      if (info->endian == BFD_ENDIAN_LITTLE)
-	insn[0] = bfd_getm32 (insn[0]);
     }
 
   /* Always read second word in case of limm we ignore the result
@@ -170,10 +185,15 @@ print_insn_arc (bfd_vma memaddr,
 	  else
 	    value = (insn[0] >> operand->shift) & ((1 << operand->bits) - 1);
 
-	  if (value == 0x3E
-	      && operand->flags & ARC_OPERAND_IR
+	  /* Check for LIMM indicator. If it is there, then make sure
+	     we pick the right format.*/
+	  if (operand->flags & ARC_OPERAND_IR
 	      && !(operand->flags & ARC_OPERAND_LIMM))
-	    invalid = 1;
+	    {
+	      if ((value == 0x3E && insnLen == 4)
+		  || (value == 0x1E && insnLen == 2))
+		invalid = 1;
+	    }
 	}
       if (invalid)
 	continue;
@@ -205,6 +225,8 @@ print_insn_arc (bfd_vma memaddr,
 
  found:
   (*info->fprintf_func) (info->stream, "%s", opcode->name);
+
+  pr_debug ("%s: 0x%08x\n", opcode->name, opcode->opcode);
 
  print_flags:
   /* Now extract and print the flags. */
@@ -246,7 +268,15 @@ print_insn_arc (bfd_vma memaddr,
 	value = (*operand->extract) (insn[0], (int *) NULL);
       else
 	{
-	  value = (insn[0] >> operand->shift) & ((1 << operand->bits) - 1);
+	  if (operand->flags & ARC_OPERAND_ALIGNED32)
+	    {
+	      value = (insn[0] >> operand->shift) & ((1 << (operand->bits - 2)) - 1);
+	      value = value << 2;
+	    }
+	  else
+	    {
+	      value = (insn[0] >> operand->shift) & ((1 << operand->bits) - 1);
+	    }
 	  if (operand->flags & ARC_OPERAND_SIGNED)
 	    {
 	      int signbit = 1 << (operand->bits - 1);

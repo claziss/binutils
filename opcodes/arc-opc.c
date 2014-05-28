@@ -84,7 +84,7 @@ insert_bbs9 (unsigned insn,
 /* Insert bbit's s9 immediate operand function. */
 static int
 extract_bbs9 (unsigned insn,
-	      int *invalid)
+	      int *invalid ATTRIBUTE_UNUSED)
 {
   int value;
 
@@ -133,7 +133,7 @@ insert_simm12 (unsigned insn,
 /* Insert bbit's s9 immediate operand function. */
 static int
 extract_simm12 (unsigned insn,
-		int *invalid)
+		int *invalid ATTRIBUTE_UNUSED)
 {
   int value = (((insn & 0x3f) << 6) | ((insn >> 6) & 0x3f));
 
@@ -149,7 +149,7 @@ extract_simm12 (unsigned insn,
 static unsigned
 insert_uimm6s (unsigned insn,
 	     int value,
-	     const char **errmsg)
+	     const char **errmsg ATTRIBUTE_UNUSED)
 {
   insn |= ((value & 0x38) << 1) | (value & 0x07);
 
@@ -159,7 +159,7 @@ insert_uimm6s (unsigned insn,
 /* Extract unsigned 6-bit immediate */
 static int
 extract_uimm6s (unsigned insn,
-		int *invalid)
+		int *invalid ATTRIBUTE_UNUSED)
 {
   int value = ((insn & 0x70) >> 1) | (insn & 0x07);
 
@@ -177,7 +177,7 @@ insert_rhv1 (unsigned insn,
 }
 
 static int
-extract_rhv1 (unsigned insn,
+extract_rhv1 (unsigned insn ATTRIBUTE_UNUSED,
 	      int *invalid ATTRIBUTE_UNUSED)
 {
   int value = 0;
@@ -188,9 +188,11 @@ extract_rhv1 (unsigned insn,
 /* Insert H register into a 16-bit opcode. */
 static unsigned
 insert_rhv2 (unsigned insn,
-	   int value,
-	   const char **errmsg ATTRIBUTE_UNUSED)
+	     int value,
+	     const char **errmsg)
 {
+  if (value == 0x1E)
+    *errmsg = _("Register R30 is a limm indicator for this type of instruction.");
   return insn |= ((value & 0x07) << 5) | ((value >> 3) & 0x03);
 }
 
@@ -198,7 +200,7 @@ static int
 extract_rhv2 (unsigned insn ATTRIBUTE_UNUSED,
 	      int *invalid ATTRIBUTE_UNUSED)
 {
-  int value = (insn >> 5) & 0x07 | ((insn & 0x03) << 3);
+  int value = ((insn >> 5) & 0x07) | ((insn & 0x03) << 3);
 
   return value;
 }
@@ -436,6 +438,106 @@ extract_rcs (unsigned insn ATTRIBUTE_UNUSED,
     return value;
 }
 
+static unsigned
+insert_uimm3s (unsigned insn,
+	       int value,
+	       const char **errmsg ATTRIBUTE_UNUSED)
+{
+  if (value < 1 || value > 7)
+    *errmsg = _("The operand accepts only values from 1 to 7.");
+
+  insn |= value & 0x07;
+
+  return insn;
+}
+
+static unsigned
+insert_simm3s (unsigned insn,
+	       int value,
+	       const char **errmsg ATTRIBUTE_UNUSED)
+{
+  int tmp = 0;
+  switch (value)
+    {
+    case -1:
+      tmp = 0x07;
+      break;
+    case 0:
+      tmp = 0x00;
+      break;
+    case 1:
+      tmp = 0x01;
+      break;
+    case 2:
+      tmp = 0x02;
+      break;
+    case 3:
+      tmp = 0x03;
+      break;
+    case 4:
+      tmp = 0x04;
+      break;
+    case 5:
+      tmp = 0x05;
+      break;
+    case 6:
+      tmp = 0x06;
+      break;
+    default:
+      *errmsg = _("Accepted values are from -1 to 6.");
+      break;
+    }
+
+  insn |= tmp << 8;
+  return insn;
+}
+
+static int
+extract_simm3s (unsigned insn ATTRIBUTE_UNUSED,
+		int *invalid ATTRIBUTE_UNUSED)
+{
+  int value = (insn >> 8) & 0x07;
+  if (value == 7)
+    return -1;
+  else
+    return value;
+}
+
+static unsigned
+insert_simm25_16 (unsigned insn,
+		  int value,
+		  const char **errmsg ATTRIBUTE_UNUSED)
+{
+  int tmp;
+
+  if (value & 0x01)
+    *errmsg = _("Target address is not 16bit aligned.");
+
+  tmp = value >> 1;
+  insn |= (tmp & 0x3FF) << 16;
+  insn |= ((tmp >> 10) & 0x3FF) << 5;
+  insn |= (tmp >> 20) & 0x0F;
+  return insn;
+}
+
+static int
+extract_simm25_16 (unsigned insn,
+		   int *invalid ATTRIBUTE_UNUSED)
+{
+  int value;
+
+  value = (insn >> 16) & 0x3FF;
+  value |= ((insn >> 5) & 0x3FF) << 10;
+  value |= (insn & 0x0F) << 20;
+
+  value = value << 1;
+
+  /* Fix the sign. */
+  int signbit = 1 << 25;
+  value = (value ^ signbit) - signbit;
+
+  return value;
+}
 
 /* Abbreviations for instruction subsets.  */
 #define BASE			ARC_OPCODE_BASE
@@ -613,6 +715,9 @@ const struct arc_flag_class arc_flag_classes[] =
     { 0, { F_NT, F_T, F_NULL } },
 #define C_D         (C_T + 1)
     { 0, { F_ND, F_D, F_NULL } },
+
+#define C_DHARD    (C_D + 1)
+    { 0, { F_D, F_NULL } },
   };
 
 /* Common combinations of FLAGS.  */
@@ -690,7 +795,8 @@ const struct arc_operand arc_operands[] =
 
     /* The signed "9-bit" immediate used for bbit instructions. */
 #define BBS9            (ZA + 1)
-    { 8, 17, -BBS9, ARC_OPERAND_SIGNED | ARC_OPERAND_PCREL, insert_bbs9, extract_bbs9 },
+    { 8, 17, -BBS9, ARC_OPERAND_SIGNED | ARC_OPERAND_PCREL | ARC_OPERAND_ALIGNED16,
+      insert_bbs9, extract_bbs9 },
     /* Fake operand to handle the T flag. */
 #define FKT             (BBS9 + 1)
     { 1, 3, 0, ARC_OPERAND_FAKE, insert_Ybit, 0 },
@@ -707,21 +813,38 @@ const struct arc_operand arc_operands[] =
     /* The unsigned 7-bit immediate. */
 #define UIMM7S32        (UIMM7 + 1)
     { 7, 0, 0, ARC_OPERAND_UNSIGNED | ARC_OPERAND_ALIGNED32, 0, 0 },
-    /* The signed 3-bit immediate used by short insns. */
-#define SIMM3           (UIMM7S32 + 1)
-    { 3, 8, 0, ARC_OPERAND_SIGNED, 0, 0 },
+    /* The signed 3-bit immediate used by short insns that encodes the
+       following values: -1, 0, 1, 2, 3, 4, 5, 6.  The number of bits
+       is dummy, just to pass the initial range checks when picking
+       the opcode.*/
+#define SIMM3S          (UIMM7S32 + 1)
+    { 4, 8, 0, ARC_OPERAND_SIGNED, insert_simm3s, extract_simm3s },
     /* The unsigned 6-bit immediate used by short insns. */
-#define UIMM6S          (SIMM3 + 1)
+#define UIMM6S          (SIMM3S + 1)
     { 6, 0, 0, ARC_OPERAND_UNSIGNED, insert_uimm6s, extract_uimm6s },
     /* The signed 11-bit immediate used by short insns, 32bit aligned! */
 #define SIMM11S32       (UIMM6S + 1)
     { 11, 0, 0, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED32, 0, 0 },
-    /* The unsigned 3-bit immediate used by short insns. */
+    /* The unsigned 3-bit immediate used by short insns. The value
+       zero is reserved. */
 #define UIMM3S          (SIMM11S32 + 1)
-    { 3, 0, 0, ARC_OPERAND_UNSIGNED, 0, 0 },
+    { 3, 0, 0, ARC_OPERAND_UNSIGNED, insert_uimm3s, 0 },
     /* The unsigned 5-bit immediate used by short insns. */
 #define UIMM5S          (UIMM3S + 1)
     { 5, 0, 0, ARC_OPERAND_UNSIGNED, 0, 0 },
+    /* 12-bit signed immediate value, 16bit aligned. To be used by J,
+       JL type instructions. */
+#define SIMM12_16       (UIMM5S + 1)
+    { 12, 6, 0, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED16, insert_simm12, extract_simm12 },
+    /* The unsigned 6-bit immediate, 16bit aligned. To be used by J
+       and JL instructions. */
+#define UIMM6_16        (SIMM12_16 + 1)
+    { 6, 6, 0, ARC_OPERAND_UNSIGNED | ARC_OPERAND_ALIGNED16, 0, 0 },
+    /* 25-bit signed immediate value, 16bit aligned. To be used by B,
+       BL type instructions. */
+#define SIMM25_16       (UIMM5S + 1)
+    { 25, 0, 0, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED16,
+      insert_simm25_16, extract_simm25_16 },
 
   };
 const unsigned arc_num_operands = sizeof(arc_operands)/sizeof(*arc_operands);
@@ -818,18 +941,18 @@ const struct arc_opcode arc_opcodes[] =
 { "add", 0x26C07F80, 0xFFFF7FE0, BASE, ARG_32BIT_ZALIMMLIMM, FLAGS_CCF },
 
 
-{"add_s",       0x00006018, 0x0000F818, ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS | ARC_OPCODE_ARC700 | ARC_OPCODE_ARC600, { RA16, RB16, RC16 }, { NULL } },
-{"add_s",       0x00007000, 0x0000F81C, ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS, { RB16, RB16dup, R5H }, { NULL } },
-{"add_s",       0x00007004, 0x0000F81C, ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS, { R5H, R5Hdup, SIMM3 }, { NULL } },
-{"add_s",       0x000070C7, 0x0000F8FF, ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS, { ZA, LIMM, SIMM3 }, { NULL } },
-{"add_s",       0x0000C080, 0x0000F8E0, ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS | ARC_OPCODE_ARC700 | ARC_OPCODE_ARC600, { RB16, SP, UIMM7S32 }, { NULL } },
-{"add_s",       0x0000E000, 0x0000F880, ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS | ARC_OPCODE_ARC700 | ARC_OPCODE_ARC600, { RB16, RB16dup, UIMM7 }, { NULL } },
-{"add_s",       0x00006800, 0x0000F818, ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS | ARC_OPCODE_ARC700 | ARC_OPCODE_ARC600, { RC16, RB16, UIMM3S }, { NULL } },
-{"add_s",       0x0000C0A0, 0x0000FFE0, ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS | ARC_OPCODE_ARC700 | ARC_OPCODE_ARC600, { SP, SP, UIMM7S32 }, { NULL } },
-{"add_s",       0x0000CE00, 0x0000FE00, ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS | ARC_OPCODE_ARC700 | ARC_OPCODE_ARC600, { R0, GP, SIMM11S32 }, { NULL } },
-{"add_s",       0x00004808, 0x0000F888, (ARC_OPCODE_ARCv2EM) | ARC_OPCODE_ARCv2HS, { R0, RB16, UIMM6S }, { NULL } },
-{"add_s",       0x00004888, 0x0000F888, (ARC_OPCODE_ARCv2EM) | ARC_OPCODE_ARCv2HS, { R1, RB16, UIMM6S }, { NULL } },
-{"add_s",       0x000070C3, 0x0000F8FF, ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS, { RB16, RB16dup, LIMM }, { NULL } },
+{"add_s",       0x00006018, 0x0000F818, ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS | ARC_OPCODE_ARC700 | ARC_OPCODE_ARC600, { RA16, RB16, RC16 }, { 0 } },
+{"add_s",       0x00007000, 0x0000F81C, ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS, { RB16, RB16dup, R5H }, { 0 } },
+{"add_s",       0x00007004, 0x0000F81C, ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS, { R5H, R5Hdup, SIMM3S }, { 0 } },
+{"add_s",       0x000070C7, 0x0000F8FF, ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS, { ZA, LIMM, SIMM3S }, { 0 } },
+{"add_s",       0x0000C080, 0x0000F8E0, ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS | ARC_OPCODE_ARC700 | ARC_OPCODE_ARC600, { RB16, SP, UIMM7S32 }, { 0 } },
+{"add_s",       0x0000E000, 0x0000F880, ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS | ARC_OPCODE_ARC700 | ARC_OPCODE_ARC600, { RB16, RB16dup, UIMM7 }, { 0 } },
+{"add_s",       0x00006800, 0x0000F818, ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS | ARC_OPCODE_ARC700 | ARC_OPCODE_ARC600, { RC16, RB16, UIMM3S }, { 0 } },
+{"add_s",       0x0000C0A0, 0x0000FFE0, ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS | ARC_OPCODE_ARC700 | ARC_OPCODE_ARC600, { SP, SP, UIMM7S32 }, { 0 } },
+{"add_s",       0x0000CE00, 0x0000FE00, ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS | ARC_OPCODE_ARC700 | ARC_OPCODE_ARC600, { R0, GP, SIMM11S32 }, { 0 } },
+{"add_s",       0x00004808, 0x0000F888, (ARC_OPCODE_ARCv2EM) | ARC_OPCODE_ARCv2HS, { R0, RB16, UIMM6S }, { 0 } },
+{"add_s",       0x00004888, 0x0000F888, (ARC_OPCODE_ARCv2EM) | ARC_OPCODE_ARCv2HS, { R1, RB16, UIMM6S }, { 0 } },
+{"add_s",       0x000070C3, 0x0000F8FF, ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS, { RB16, RB16dup, LIMM }, { 0 } },
 
     { "nop", 0x264A7000, 0xFFFFFFFF, BASE, ARG_NONE, FLAGS_NONE },
     { "nop_s", 0x78E0, 0xFFFF, BASE, ARG_NONE, FLAGS_NONE },

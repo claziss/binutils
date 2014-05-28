@@ -1413,6 +1413,10 @@ find_opcode_match (const struct arc_opcode *first_opcode,
 		      if ((operand->flags & ARC_OPERAND_ALIGNED32)
 			  && (val & 0x03))
 			goto match_failed;
+
+		      if ((operand->flags & ARC_OPERAND_ALIGNED16)
+			  && (val & 0x01))
+			goto match_failed;
 		    }
 		  break;
 
@@ -1752,7 +1756,11 @@ insert_operand (unsigned insn,
 
   if ((operand->flags & ARC_OPERAND_ALIGNED32)
       && (val & 0x03))
-    as_bad (_("Unaligned operand."));
+    as_bad (_("Unaligned operand. Needs to be 32bit aligned"));
+
+  if ((operand->flags & ARC_OPERAND_ALIGNED16)
+      && (val & 0x01))
+    as_bad (_("Unaligned operand. Needs to be 16bit aligned"));
 
   if (operand->insert)
     {

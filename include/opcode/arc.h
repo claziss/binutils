@@ -202,6 +202,9 @@ extern const unsigned arc_fake_idx_Toperand;
 /* This operand is 32bit aligned. */
 #define ARC_OPERAND_ALIGNED32   0x0080
 
+/* This operand is 16bit aligned. */
+#define ARC_OPERAND_ALIGNED16   0x0100
+
 /* Mask for selecting the type for typecheck purposes */
 #define ARC_OPERAND_TYPECHECK_MASK		\
   (ARC_OPERAND_IR |				\
