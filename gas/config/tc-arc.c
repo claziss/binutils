@@ -1410,6 +1410,7 @@ find_opcode_match (const struct arc_opcode *first_opcode,
 		      if (val < min || val > max)
 			goto match_failed;
 
+		      /* Check alignmets. */
 		      if ((operand->flags & ARC_OPERAND_ALIGNED32)
 			  && (val & 0x03))
 			goto match_failed;
@@ -1772,9 +1773,13 @@ insert_operand (unsigned insn,
     }
   else
     {
-      if ((operand->flags & ARC_OPERAND_ALIGNED32)
-	  && !(val & 0x03))
-	val >>=2;
+      if (operand->flags & ARC_OPERAND_TRUNCATE)
+	{
+	  if (operand->flags & ARC_OPERAND_ALIGNED32)
+	    val >>= 2;
+	  if (operand->flags & ARC_OPERAND_ALIGNED16)
+	    val >>= 1;
+	}
       insn |= ((val & ((1 << operand->bits) - 1)) << operand->shift);
     }
 

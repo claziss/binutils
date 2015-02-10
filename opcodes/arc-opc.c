@@ -515,7 +515,7 @@ insert_simm25_16 (unsigned insn,
 
   tmp = value >> 1;
   insn |= (tmp & 0x3FF) << 16;
-  insn |= ((tmp >> 10) & 0x3FF) << 5;
+  insn |= ((tmp >> 10) & 0x3FF) << 6;
   insn |= (tmp >> 20) & 0x0F;
   return insn;
 }
@@ -527,7 +527,7 @@ extract_simm25_16 (unsigned insn,
   int value;
 
   value = (insn >> 16) & 0x3FF;
-  value |= ((insn >> 5) & 0x3FF) << 10;
+  value |= ((insn >> 6) & 0x3FF) << 10;
   value |= (insn & 0x0F) << 20;
 
   value = value << 1;
@@ -538,6 +538,114 @@ extract_simm25_16 (unsigned insn,
 
   return value;
 }
+
+static unsigned
+insert_simm25_32 (unsigned insn,
+		  int value,
+		  const char **errmsg ATTRIBUTE_UNUSED)
+{
+  int tmp;
+
+  if (value & 0x02)
+    *errmsg = _("Target address is not 32bit aligned.");
+
+  tmp = value >> 2;
+  insn |= (tmp & 0x1FF) << 17;
+  insn |= ((tmp >> 10) & 0x3FF) << 6;
+  insn |= (tmp >> 20) & 0x0F;
+  return insn;
+}
+
+static int
+extract_simm25_32 (unsigned insn,
+		   int *invalid ATTRIBUTE_UNUSED)
+{
+  int value;
+
+  value = (insn >> 17) & 0x1FF;
+  value |= ((insn >> 5) & 0x3FF) << 10;
+  value |= (insn & 0x0F) << 20;
+
+  value = value << 2;
+
+  /* Fix the sign. */
+  int signbit = 1 << 25;
+  value = (value ^ signbit) - signbit;
+
+  return value;
+}
+
+/**/
+static unsigned
+insert_simm21_16 (unsigned insn,
+		  int value,
+		  const char **errmsg ATTRIBUTE_UNUSED)
+{
+  int tmp;
+
+  if (value & 0x01)
+    *errmsg = _("Target address is not 16bit aligned.");
+
+  tmp = value >> 1;
+  insn |= (tmp & 0x3FF) << 16;
+  insn |= ((tmp >> 10) & 0x3FF) << 6;
+  return insn;
+}
+
+static int
+extract_simm21_16 (unsigned insn,
+		   int *invalid ATTRIBUTE_UNUSED)
+{
+  int value;
+
+  value = (insn >> 16) & 0x3FF;
+  value |= ((insn >> 6) & 0x3FF) << 10;
+  value |= (insn & 0x0F) << 20;
+
+  value = value << 1;
+
+  /* Fix the sign. */
+  int signbit = 1 << 25;
+  value = (value ^ signbit) - signbit;
+
+  return value;
+}
+
+static unsigned
+insert_simm21_32 (unsigned insn,
+		  int value,
+		  const char **errmsg ATTRIBUTE_UNUSED)
+{
+  int tmp;
+
+  if (value & 0x02)
+    *errmsg = _("Target address is not 32bit aligned.");
+
+  tmp = value >> 2;
+  insn |= (tmp & 0x1FF) << 17;
+  insn |= ((tmp >> 10) & 0x3FF) << 6;
+  return insn;
+}
+
+static int
+extract_simm21_32 (unsigned insn,
+		   int *invalid ATTRIBUTE_UNUSED)
+{
+  int value;
+
+  value = (insn >> 17) & 0x1FF;
+  value |= ((insn >> 6) & 0x3FF) << 10;
+  value |= (insn & 0x0F) << 20;
+
+  value = value << 2;
+
+  /* Fix the sign. */
+  int signbit = 1 << 25;
+  value = (value ^ signbit) - signbit;
+
+  return value;
+}
+
 
 /* Abbreviations for instruction subsets.  */
 #define BASE			ARC_OPCODE_BASE
@@ -812,7 +920,8 @@ const struct arc_operand arc_operands[] =
     { 7, 0, 0, ARC_OPERAND_UNSIGNED, 0, 0 },
     /* The unsigned 7-bit immediate. */
 #define UIMM7S32        (UIMM7 + 1)
-    { 7, 0, 0, ARC_OPERAND_UNSIGNED | ARC_OPERAND_ALIGNED32, 0, 0 },
+    { 7, 0, 0, ARC_OPERAND_UNSIGNED | ARC_OPERAND_ALIGNED32
+      | ARC_OPERAND_TRUNCATE, 0, 0 },
     /* The signed 3-bit immediate used by short insns that encodes the
        following values: -1, 0, 1, 2, 3, 4, 5, 6.  The number of bits
        is dummy, just to pass the initial range checks when picking
@@ -824,7 +933,8 @@ const struct arc_operand arc_operands[] =
     { 6, 0, 0, ARC_OPERAND_UNSIGNED, insert_uimm6s, extract_uimm6s },
     /* The signed 11-bit immediate used by short insns, 32bit aligned! */
 #define SIMM11S32       (UIMM6S + 1)
-    { 11, 0, 0, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED32, 0, 0 },
+    { 11, 0, 0, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED32
+      | ARC_OPERAND_TRUNCATE, 0, 0 },
     /* The unsigned 3-bit immediate used by short insns. The value
        zero is reserved. */
 #define UIMM3S          (SIMM11S32 + 1)
@@ -840,11 +950,41 @@ const struct arc_operand arc_operands[] =
        and JL instructions. */
 #define UIMM6_16        (SIMM12_16 + 1)
     { 6, 6, 0, ARC_OPERAND_UNSIGNED | ARC_OPERAND_ALIGNED16, 0, 0 },
-    /* 25-bit signed immediate value, 16bit aligned. To be used by B,
-       BL type instructions. */
+    /* 25-bit signed immediate value, 16bit aligned. To be used by B
+       type instructions. */
 #define SIMM25_16       (UIMM5S + 1)
     { 25, 0, 0, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED16,
       insert_simm25_16, extract_simm25_16 },
+    /* 10-bit signed immediate value, 16 bit aligned. Used by
+       B_S/BEQ_S/BNE_S type instructions */
+#define SIMM10_16       (SIMM25_16 + 1)
+    { 10, 0, 0, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED16
+      | ARC_OPERAND_TRUNCATE, 0, 0 },
+    /* 7-bit signed immediate value, 16 bit aligned. Used by any other
+       B<cc>_S type instructions. */
+#define SIMM7_16       (SIMM10_16 + 1)
+    { 7, 0, 0, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED16
+      | ARC_OPERAND_TRUNCATE, 0, 0 },
+    /* 13-bit signed immediate value, 32 bit aligned. Used by BL_S type
+       instructions. */
+#define SIMM13_32       (SIMM7_16 + 1)
+    { 13, 0, 0, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED32
+      | ARC_OPERAND_TRUNCATE, 0, 0 },
+    /* 25-bit signed immediate value, 32bit aligned. To be used by BL
+       type instructions. */
+#define SIMM25_32       (SIMM13_32 + 1)
+    { 25, 0, 0, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED32,
+      insert_simm25_32, extract_simm25_32 },
+    /* 21-bit signed immediate value, 16bit aligned. To be used by B
+       type instructions. */
+#define SIMM21_16       (SIMM25_32 + 1)
+    { 21, 0, 0, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED16,
+      insert_simm21_16, extract_simm21_16 },
+    /* 21-bit signed immediate value, 32bit aligned. To be used by BL
+       type instructions. */
+#define SIMM21_32       (SIMM21_16 + 1)
+    { 25, 0, 0, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED32,
+      insert_simm21_32, extract_simm21_32 },
 
   };
 const unsigned arc_num_operands = sizeof(arc_operands)/sizeof(*arc_operands);

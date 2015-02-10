@@ -199,11 +199,15 @@ extern const unsigned arc_fake_idx_Toperand;
 /* This operand is PC relative. Used for internal relocs. */
 #define ARC_OPERAND_PCREL       0x0040
 
-/* This operand is 32bit aligned. */
-#define ARC_OPERAND_ALIGNED32   0x0080
+/* This operand is truncated. The truncation is done accordingly to
+   operand alignment attribute. */
+#define ARC_OPERAND_TRUNCATE    0x0080
 
 /* This operand is 16bit aligned. */
 #define ARC_OPERAND_ALIGNED16   0x0100
+
+/* This operand is 32bit aligned. */
+#define ARC_OPERAND_ALIGNED32   0x0200
 
 /* Mask for selecting the type for typecheck purposes */
 #define ARC_OPERAND_TYPECHECK_MASK		\
