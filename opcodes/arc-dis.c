@@ -241,9 +241,12 @@ print_insn_arc (bfd_vma memaddr,
 	  const struct arc_flag_operand *flg_operand = &arc_flag_operands[*flgopridx];
 	  unsigned int value;
 
+	  if (!flg_operand->favail)
+	    continue;
+
 	  value = (insn[0] >> flg_operand->shift) & ((1 << flg_operand->bits) - 1);
 	  if (value == flg_operand->code)
-	    (*info->fprintf_func) (info->stream, ".%s", flg_operand->name);
+	    (*info->fprintf_func) (info->stream, ".%s", flg_operand->name); /* FIXME!: print correctly nt/t flag */
 
 	  if (flg_operand->name[0] == 'd')
 	    info->branch_delay_insns = 1;

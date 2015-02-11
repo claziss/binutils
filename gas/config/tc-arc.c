@@ -165,13 +165,16 @@ static const struct cpu_type
 {
   const char *name;
   unsigned flags;
+  int mach;
 }
 cpu_types[] =
 {
-  { "arcv2em", ARC_OPCODE_BASE  },
-  { "arcv2hs", ARC_OPCODE_BASE  },
-  { "all", ARC_OPCODE_BASE },
-  { 0, 0 }
+  { "arc600", ARC_OPCODE_ARC600, bfd_mach_arc_arc700 }, /* FIXME! update bfd-in2.h */
+  { "arc700", ARC_OPCODE_ARC700, bfd_mach_arc_arc700 },
+  { "arcem", ARC_OPCODE_ARCv2EM, bfd_mach_arc_arcv2 },
+  { "archs", ARC_OPCODE_ARCv2HS, bfd_mach_arc_arcv2 },
+  { "all", ARC_OPCODE_BASE, bfd_mach_arc_arcv2 },
+  { 0, 0, 0 }
 };
 
 struct arc_flags
@@ -466,7 +469,7 @@ tokenize_arguments (char *str,
   bfd_boolean saw_brk = FALSE;
   int num_args = 0;
   const char *p;
-  int c, i;
+  int i;
   size_t len;
   const struct arc_reloc_op_tag *r;
   expressionS tmpE;
@@ -1196,8 +1199,6 @@ md_operand (expressionS *expressionP ATTRIBUTE_UNUSED)
 int
 md_parse_option (int c, char *arg ATTRIBUTE_UNUSED)
 {
-  int cpu_flags = 0;
-
   switch (c)
     {
     case OPTION_MCPU:
@@ -1215,15 +1216,20 @@ md_parse_option (int c, char *arg ATTRIBUTE_UNUSED)
 	}
 
 	for (i = 0; cpu_types[i].name; ++i)
-	  if (strcmp (cpu_types[i].name, s) == 0)
-	    break;
+	  {
+	    if (!strcmp (cpu_types[i].name, s))
+	      {
+		arc_target = cpu_types[i].flags;
+		arc_target_name = cpu_types[i].name;
+		arc_mach_type = cpu_types[i].mach;
+		break;
+	      }
+	  }
 
 	if (!cpu_types[i].name)
 	  {
 	    as_fatal (_("unknown architecture: %s\n"), arg);
 	  }
-
-	/* FIXME cpu_flags */
 	break;
       }
     case OPTION_EB:
@@ -1273,7 +1279,7 @@ assemble_tokens (const char *opname,
   opcode = (const struct arc_opcode *) hash_find (arc_opcode_hash, opname);
   if (opcode)
     {
-      pr_debug ("%s:%d: assemble_tokens: trying opcode %x\n",
+      pr_debug ("%s:%d: assemble_tokens: trying opcode 0x%8X\n",
 		frag_now->fr_file, frag_now->fr_line, opcode->opcode);
 
       found_something = 1;
@@ -1325,6 +1331,9 @@ find_opcode_match (const struct arc_opcode *first_opcode,
       int tokidx = 0;
       const expressionS *t;
 
+      pr_debug ("%s:%d: find_opcode_match: trying opcode 0x%8X\n",
+		frag_now->fr_file, frag_now->fr_line, opcode->opcode);
+
       /* Don't match opcodes that don't exist on this architecture.  */
       if (!(opcode->cpu & arc_target))
 	goto match_failed;
@@ -1370,7 +1379,7 @@ find_opcode_match (const struct arc_opcode *first_opcode,
 	      if (operand->insert)
 		{
 		  const char *errmsg = NULL;
-		  (*operand->insert)(NULL,
+		  (*operand->insert)(0,
 				     regno (tok[tokidx].X_add_number),
 				     &errmsg);
 		  if (errmsg)
@@ -1448,7 +1457,6 @@ find_opcode_match (const struct arc_opcode *first_opcode,
 
       /* Check the flags. Iterate over the valid flag classes. */
       int lnflg = nflgs;
-      struct arc_flags *pflag = first_pflag;
 
       for (flgidx = opcode->flags; *flgidx && lnflg; ++flgidx)
 	{
@@ -1459,15 +1467,19 @@ find_opcode_match (const struct arc_opcode *first_opcode,
 	  for (flgopridx = cl_flags->flags; *flgopridx; ++flgopridx)
 	    {
 	      const struct arc_flag_operand *flg_operand = &arc_flag_operands[*flgopridx];
+	      struct arc_flags *pflag = first_pflag;
+	      int i;
 
-	      /* Match against the parsed flags. */
-	      if (!strcmp (flg_operand->name, pflag->name))
+	      for (i = 0; i < nflgs; i++, pflag++)
 		{
-		  /*TODO: Check if it is duplicated. */
-		  pflag->code = *flgopridx;
-		  pflag++;
-		  lnflg--;
-		  break; /* goto next flag class and parsed flag. */
+		  /* Match against the parsed flags. */
+		  if (!strcmp (flg_operand->name, pflag->name))
+		    {
+		      /*TODO: Check if it is duplicated. */
+		      pflag->code = *flgopridx;
+		      lnflg--;
+		      break; /* goto next flag class and parsed flag. */
+		    }
 		}
 	    }
 	}
@@ -1622,15 +1634,32 @@ assemble_insn (const struct arc_opcode *opcode,
 	 the relative address . */
       if (!strcmp (flg_operand->name, "t") || !strcmp (flg_operand->name, "nt"))
 	{
-	  struct arc_fixup *fixup;
+	  /* Check if we have a symbol or an solved immediate */
+	  gas_assert (reloc_exp != NULL);
+	  if (reloc_exp->X_op == O_constant)
+	    {
+	      offsetT val = reloc_exp->X_add_number;
 
-	  if (insn->nfixups >= MAX_INSN_FIXUPS)
-	    as_fatal (_("too many fixups"));
+	      if (!strcmp (opcode->name, "bbit0") || !strcmp (opcode->name, "bbit1"))
+		val = flg_operand->code ? -val : val;
+	      else
+		val = flg_operand->code ? val : -val; /* BRcc case */
 
-	  fixup = &insn->fixups[insn->nfixups++];
-	  fixup->exp = *reloc_exp;
-	  fixup->reloc = -arc_fake_idx_Toperand;
-	  fixup->pcrel = pcrel;
+	      image |= insert_operand (image, &arc_operands[arc_fake_idx_Toperand],
+				       val, NULL, 0);
+	    }
+	  else
+	    {
+	      struct arc_fixup *fixup;
+
+	      if (insn->nfixups >= MAX_INSN_FIXUPS)
+		as_fatal (_("too many fixups"));
+
+	      fixup = &insn->fixups[insn->nfixups++];
+	      fixup->exp = *reloc_exp;
+	      fixup->reloc = -arc_fake_idx_Toperand; /*FIXME! the bbit/br case discriminator */
+	      fixup->pcrel = pcrel;
+	    }
 	}
       else
 	image |= (flg_operand->code & ((1 << flg_operand->bits) - 1))

@@ -653,143 +653,143 @@ extract_simm21_32 (unsigned insn,
 /* The flag operands table.
 
    The format of the table is
-   NAME CODE BITS SHIFT
+   NAME CODE BITS SHIFT FAVAIL
 */
 const struct arc_flag_operand arc_flag_operands[] =
   {
 #define F_NULL  0
-    { 0, 0, 0, 0},
+    { 0, 0, 0, 0, 0},
 #define F_ALWAYS    (F_NULL + 1)
-    { "al", 0, 0, 0 },
+    { "al", 0, 0, 0, 0 },
 #define F_RA        (F_ALWAYS + 1)
-    { "ra", 0, 0, 0 },
+    { "ra", 0, 0, 0, 0 },
 #define F_EQUAL     (F_RA + 1)
-    { "eq", 1, 5, 0 },
+    { "eq", 1, 5, 0, 1 },
 #define F_ZERO      (F_EQUAL + 1)
-    { "z",  1, 5, 0 },
+    { "z",  1, 5, 0, 0 },
 #define F_NOTEQUAL  (F_ZERO + 1)
-    { "ne", 2, 5, 0 },
+    { "ne", 2, 5, 0, 1 },
 #define F_NOTZERO   (F_NOTEQUAL + 1)
-    { "nz", 2, 5, 0 },
+    { "nz", 2, 5, 0, 0 },
 #define F_POZITIVE  (F_NOTZERO + 1)
-    { "p",  3, 5, 0 },
+    { "p",  3, 5, 0, 1 },
 #define F_PL        (F_POZITIVE + 1)
-    { "pl", 3, 5, 0 },
+    { "pl", 3, 5, 0, 0 },
 #define F_NEGATIVE  (F_PL + 1)
-    { "n",  4, 5, 0 },
+    { "n",  4, 5, 0, 1 },
 #define F_MINUS     (F_NEGATIVE + 1)
-    { "mi", 4, 5, 0 },
+    { "mi", 4, 5, 0, 0 },
 #define F_CARRY     (F_MINUS + 1)
-    { "c",  5, 5, 0 },
+    { "c",  5, 5, 0, 1 },
 #define F_CARRYSET  (F_CARRY + 1)
-    { "cs", 5, 5, 0 },
+    { "cs", 5, 5, 0, 0 },
 #define F_LOWER     (F_CARRYSET + 1)
-    { "lo", 5, 5, 0 },
+    { "lo", 5, 5, 0, 0 },
 #define F_CARRYCLR  (F_LOWER + 1)
-    { "cc", 6, 5, 0 },
+    { "cc", 6, 5, 0, 0 },
 #define F_NOTCARRY (F_CARRYCLR + 1)
-    { "nc", 6, 5, 0 },
+    { "nc", 6, 5, 0, 1 },
 #define F_HIGHER   (F_NOTCARRY + 1)
-    { "hs", 6, 5, 0 },
+    { "hs", 6, 5, 0, 0 },
 #define F_OVERFLOWSET (F_HIGHER + 1)
-    { "vs", 7, 5, 0 },
+    { "vs", 7, 5, 0, 0 },
 #define F_OVERFLOW (F_OVERFLOWSET + 1)
-    { "v",  7, 5, 0 },
+    { "v",  7, 5, 0, 1 },
 #define F_NOTOVERFLOW (F_OVERFLOW + 1)
-    { "nv", 8, 5, 0 },
+    { "nv", 8, 5, 0, 1 },
 #define F_OVERFLOWCLR (F_NOTOVERFLOW + 1)
-    { "vc", 8, 5, 0 },
+    { "vc", 8, 5, 0, 0 },
 #define F_GT       (F_OVERFLOWCLR + 1)
-    { "gt", 9, 5, 0 },
+    { "gt", 9, 5, 0, 1 },
 #define F_GE       (F_GT + 1)
-    { "ge", 10, 5, 0 },
+    { "ge", 10, 5, 0, 1 },
 #define F_LT       (F_GE + 1)
-    { "lt", 11, 5, 0 },
+    { "lt", 11, 5, 0, 1 },
 #define F_LE       (F_LT + 1)
-    { "le", 12, 5, 0 },
+    { "le", 12, 5, 0, 1 },
 #define F_HI       (F_LE + 1)
-    { "hi", 13, 5, 0 },
+    { "hi", 13, 5, 0, 1 },
 #define F_LS       (F_HI + 1)
-    { "ls", 14, 5, 0 },
+    { "ls", 14, 5, 0, 1 },
 #define F_PNZ      (F_LS + 1)
-    { "pnz", 15, 5, 0 },
+    { "pnz", 15, 5, 0, 1 },
 
     /* FLAG. */
 #define F_FLAG     (F_PNZ + 1)
-    { "f",  1, 1, 15 },
+    { "f",  1, 1, 15, 1 },
 
     /* Delay slot. */
 #define F_ND       (F_FLAG + 1)
-    { "nd", 0, 1, 5 },
+    { "nd", 0, 1, 5, 0 },
 #define F_D        (F_ND + 1)
-    { "d",  1, 1, 5 },
+    { "d",  1, 1, 5, 1 },
 
     /* Data size. */
 #define F_SIZEB1   (F_D + 1)
-    { "b", 1, 2, 1 },
+    { "b", 1, 2, 1, 0 },
 #define F_SIZEB7   (F_SIZEB1 + 1)
-    { "b", 1, 2, 7 },
+    { "b", 1, 2, 7, 0 },
 #define F_SIZEB17  (F_SIZEB7 + 1)
-    { "b", 1, 2, 17 },
+    { "b", 1, 2, 17, 0 },
 #define F_SIZEW1   (F_SIZEB17 + 1)
-    { "w", 2, 2, 1 },
+    { "w", 2, 2, 1, 0 },
 #define F_SIZEW7   (F_SIZEW1 + 1)
-    { "w", 2, 2, 7 },
+    { "w", 2, 2, 7, 0 },
 #define F_SIZEW17  (F_SIZEW7 + 1)
-    { "w", 2, 2, 17 },
+    { "w", 2, 2, 17, 0 },
 
     /* Sign extension. */
 #define F_SIGN6   (F_SIZEW17 + 1)
-    { "x", 1, 1, 6 },
+    { "x", 1, 1, 6, 1 },
 #define F_SIGN16   (F_SIGN6 + 1)
-    { "x", 1, 1, 16 },
+    { "x", 1, 1, 16, 1 },
 
     /* Address write-back modes. */
 #define F_A3       (F_SIGN16 + 1)
-    { "a", 1, 2, 3 },
+    { "a", 1, 2, 3, 1 },
 #define F_A9       (F_A3 + 1)
-    { "a", 1, 2, 9 },
+    { "a", 1, 2, 9, 1 },
 #define F_A22      (F_A9 + 1)
-    { "a", 1, 2, 22 },
+    { "a", 1, 2, 22, 1 },
 #define F_AW3      (F_A22 + 1)
-    { "aw", 1, 2, 3 },
+    { "aw", 1, 2, 3, 1 },
 #define F_AW9      (F_AW3 + 1)
-    { "aw", 1, 2, 9 },
+    { "aw", 1, 2, 9, 1 },
 #define F_AW22     (F_AW9 + 1)
-    { "aw", 1, 2, 22 },
+    { "aw", 1, 2, 22, 1 },
 #define F_AB3      (F_AW22 + 1)
-    { "ab", 2, 2, 3 },
+    { "ab", 2, 2, 3, 1 },
 #define F_AB9      (F_AB3 + 1)
-    { "ab", 2, 2, 9 },
+    { "ab", 2, 2, 9, 1 },
 #define F_AB22     (F_AB9 + 1)
-    { "ab", 2, 2, 22 },
+    { "ab", 2, 2, 22, 1 },
 #define F_AS3      (F_AB22 + 1)
-    { "as", 3, 2, 3 },
+    { "as", 3, 2, 3, 1 },
 #define F_AS9      (F_AS3 + 1)
-    { "as", 3, 2, 9 },
+    { "as", 3, 2, 9, 1 },
 #define F_AS22     (F_AS9 + 1)
-    { "as", 3, 2, 22 },
+    { "as", 3, 2, 22, 1 },
     /*  { "as", 3, ADDRESS22S_AC, 0 },*/
 
     /* Cache bypass. */
 #define F_DI5     (F_AS22 + 1)
-    { "di", 1, 1, 5 },
+    { "di", 1, 1, 5, 1 },
 #define F_DI11    (F_DI5 + 1)
-    { "di", 1, 1, 11 },
+    { "di", 1, 1, 11, 1 },
 #define F_DI15    (F_DI11 + 1)
-    { "di", 1, 1, 15 },
+    { "di", 1, 1, 15, 1 },
 
     /*ARCv2 specific*/
 #define F_NT     (F_DI15 + 1)
-    { "nt", 0, 1, 3},
+    { "nt", 0, 1, 3, 1},
 #define F_T      (F_NT + 1)
-    { "t", 1, 1, 3},
+    { "t", 1, 1, 3, 1},
 #define F_H1     (F_T + 1)
-    { "h", 2, 2, 1 },
+    { "h", 2, 2, 1, 1 },
 #define F_H7     (F_H1 + 1)
-    { "h", 2, 2, 7 },
+    { "h", 2, 2, 7, 1 },
 #define F_H17    (F_H7 + 1)
-    { "h", 2, 2, 17 }
+    { "h", 2, 2, 17, 1 }
   };
 const unsigned arc_num_flag_operands = sizeof(arc_flag_operands)/sizeof(*arc_flag_operands);
 
@@ -983,9 +983,13 @@ const struct arc_operand arc_operands[] =
     /* 21-bit signed immediate value, 32bit aligned. To be used by BL
        type instructions. */
 #define SIMM21_32       (SIMM21_16 + 1)
-    { 25, 0, 0, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED32,
+    { 21, 0, 0, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED32,
       insert_simm21_32, extract_simm21_32 },
 
+    /* 8-bit signed immediate value, 16bit aligned. To be used by BR[NE/EQ]_S
+       type instructions. */
+#define SIMM8_16       (SIMM21_32 + 1)
+    { 8, 0, 0, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED16, 0, 0 },
   };
 const unsigned arc_num_operands = sizeof(arc_operands)/sizeof(*arc_operands);
 
@@ -1019,6 +1023,7 @@ const unsigned arc_fake_idx_Toperand = FKT;
 */
 const struct arc_opcode arc_opcodes[] =
   {
+#if 1
 /*ADD */
 /* add<.f>    a,b,c     	0010 0bbb 0000 0000 FBBB CCCC CCAA AAAA  */
 { "add", 0x20000000, 0xF8FF0000, BASE, ARG_32BIT_RARBRC,     FLAGS_F },
@@ -1097,6 +1102,9 @@ const struct arc_opcode arc_opcodes[] =
     { "nop", 0x264A7000, 0xFFFFFFFF, BASE, ARG_NONE, FLAGS_NONE },
     { "nop_s", 0x78E0, 0xFFFF, BASE, ARG_NONE, FLAGS_NONE },
     { "bbit0", 0x8010006, 0xF8010017, BASE, { RB, RC, BBS9 }, { C_T, C_D } },
+#else
+#include "arc-opcodes.h"
+#endif
   };
 
 const unsigned arc_num_opcodes = sizeof(arc_opcodes)/sizeof(*arc_opcodes);

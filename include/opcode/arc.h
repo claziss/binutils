@@ -229,6 +229,9 @@ struct arc_flag_operand
 
   /* How far the operand is left shifted in the instruction.  */
   unsigned int shift;
+
+  /* Available for disassembler */
+  unsigned char favail;
 };
 
 /* The flag operands table. */
