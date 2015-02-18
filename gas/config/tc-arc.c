@@ -499,10 +499,12 @@ tokenize_arguments (char *str,
 	     against the mnemonic syntax. */
 	case ']':
 	  saw_brk = FALSE;
+	  if(!saw_arg)
+	    goto err;
 	  /* FALL THROUGH */
 	case '[':
 	  input_line_pointer++;
-	  if (saw_brk || !saw_arg)
+	  if (saw_brk)
 	    goto err;
 	  saw_brk = TRUE;
 	  break;
@@ -694,7 +696,7 @@ md_assemble (char *str)
   struct arc_flags flags[MAX_INSN_FLGS];
 
   /* Split off the opcode.  */
-  opnamelen = strspn (str, "abcdefghijklmnopqrstuvwxyz_012368");
+  opnamelen = strspn (str, "abcdefghijklmnopqrstuvwxyz_0123468");
   opname = xmalloc (opnamelen + 1);
   memcpy (opname, str, opnamelen);
   opname[opnamelen] = '\0';
