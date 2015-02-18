@@ -952,7 +952,7 @@ const struct arc_operand arc_operands[] =
     { 6, 6, 0, ARC_OPERAND_UNSIGNED | ARC_OPERAND_ALIGNED16, 0, 0 },
     /* 25-bit signed immediate value, 16bit aligned. To be used by B
        type instructions. */
-#define SIMM25_16       (UIMM5S + 1)
+#define SIMM25_16       (UIMM6_16 + 1)
     { 25, 0, 0, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED16,
       insert_simm25_16, extract_simm25_16 },
     /* 10-bit signed immediate value, 16 bit aligned. Used by
@@ -1023,7 +1023,7 @@ const unsigned arc_fake_idx_Toperand = FKT;
 */
 const struct arc_opcode arc_opcodes[] =
   {
-#if 1
+#if 0
 /*ADD */
 /* add<.f>    a,b,c     	0010 0bbb 0000 0000 FBBB CCCC CCAA AAAA  */
 { "add", 0x20000000, 0xF8FF0000, BASE, ARG_32BIT_RARBRC,     FLAGS_F },
