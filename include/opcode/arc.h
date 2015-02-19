@@ -257,4 +257,17 @@ struct arc_flag_class
 
 extern const struct arc_flag_class arc_flag_classes[];
 
+/* Structure for special cases */
+struct arc_flag_special
+{
+  /* Name of special case instruction */
+  const char *name;
+
+  /* List of flags applicable for special case instruction */
+  unsigned flags[32];
+};
+
+extern const struct arc_flag_special arc_flag_special_cases[];
+extern const unsigned arc_num_flag_special;
+
 #endif /* OPCODE_ARC_H */
