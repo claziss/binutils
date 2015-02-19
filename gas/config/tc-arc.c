@@ -252,6 +252,8 @@ static void assemble_insn (const struct arc_opcode *, const expressionS *,
 static void emit_insn (struct arc_insn *);
 static unsigned insert_operand (unsigned, const struct arc_operand *,
 				offsetT, char *, unsigned);
+static const struct arc_opcode *find_special_case (const char *opname,
+        int *nflgs, struct arc_flags *pflags);
 
 /**************************************************************************/
 /* Functions implementation                                               */
@@ -1279,6 +1281,10 @@ assemble_tokens (const char *opname,
 
   /* Search opcodes. */
   opcode = (const struct arc_opcode *) hash_find (arc_opcode_hash, opname);
+
+  if (!opcode) /* Couldn't find opcode conventional way, try special cases */
+      opcode = find_special_case (opname, &nflgs, pflags);
+
   if (opcode)
     {
       pr_debug ("%s:%d: assemble_tokens: trying opcode 0x%8X\n",
@@ -1310,6 +1316,52 @@ assemble_tokens (const char *opname,
     }
   else
     as_bad (_("unknown opcode '%s'"), opname);
+}
+
+static const struct arc_opcode *
+find_special_case (const char *opname,
+        int *nflgs,
+        struct arc_flags *pflags)
+{
+  int i;
+  char *flagnm;
+  unsigned flag_idx, flag_arr_idx;
+  size_t flaglen, oplen;
+  struct arc_flag_special *arc_flag_special_opcode;
+  struct arc_opcode *opcode;
+
+  /* Search for special case instruction. */
+  for (i = 0; i < arc_num_flag_special; i++)
+    {
+      arc_flag_special_opcode = &arc_flag_special_cases[i];
+      oplen = strlen (arc_flag_special_opcode->name);
+
+      if (strncmp (opname, arc_flag_special_opcode->name, oplen) != 0)
+        continue;
+
+      /* Found a potential special case instruction, now test for flags. */
+      for (flag_arr_idx = 0;; ++flag_arr_idx)
+        {
+          flag_idx = arc_flag_special_opcode->flags[flag_arr_idx];
+          if (flag_idx == 0)
+            break;  /* End of array, nothing found. */
+
+          flagnm = arc_flag_operands[flag_idx].name;
+          flaglen = strlen(flagnm);
+          if (strcmp (opname + oplen, flagnm) == 0)
+            {
+              opcode = (const struct arc_opcode *) hash_find(arc_opcode_hash,
+                arc_flag_special_opcode->name);
+              if (*nflgs + 1 > MAX_INSN_FLGS)
+                break;
+              memcpy (pflags[*nflgs].name, flagnm, flaglen);
+              pflags[*nflgs].name[flaglen] = '\0';
+              (*nflgs)++;
+              return opcode;
+            }
+        }
+    }
+  return NULL;
 }
 
 /* Search forward through all variants of an opcode looking for a
