@@ -119,8 +119,8 @@ insert_Ybit (unsigned insn,
 /* Insert the signed 12-bit immediate. */
 static unsigned
 insert_simm12 (unsigned insn,
-	     int value,
-	     const char **errmsg)
+	       int value,
+	       const char **errmsg)
 {
   if ((value < -2048) || (value > 2047))
     *errmsg = _("out of range.");
@@ -148,8 +148,8 @@ extract_simm12 (unsigned insn,
 /* Insert the unsigned 6-bit immediate. */
 static unsigned
 insert_uimm6s (unsigned insn,
-	     int value,
-	     const char **errmsg ATTRIBUTE_UNUSED)
+	       int value,
+	       const char **errmsg ATTRIBUTE_UNUSED)
 {
   insn |= ((value & 0x38) << 1) | (value & 0x07);
 
@@ -170,8 +170,8 @@ extract_uimm6s (unsigned insn,
 /* Insert H register into a 16-bit opcode. */
 static unsigned
 insert_rhv1 (unsigned insn,
-	   int value,
-	   const char **errmsg ATTRIBUTE_UNUSED)
+	     int value,
+	     const char **errmsg ATTRIBUTE_UNUSED)
 {
   return insn |= ((value & 0x07) << 5) | ((value >> 3) & 0x07);
 }
@@ -218,7 +218,7 @@ insert_r0 (unsigned insn,
 
 static int
 extract_r0 (unsigned insn ATTRIBUTE_UNUSED,
-	      int *invalid ATTRIBUTE_UNUSED)
+	    int *invalid ATTRIBUTE_UNUSED)
 {
   return 0;
 }
@@ -236,7 +236,7 @@ insert_r1 (unsigned insn,
 
 static int
 extract_r1 (unsigned insn ATTRIBUTE_UNUSED,
-	      int *invalid ATTRIBUTE_UNUSED)
+	    int *invalid ATTRIBUTE_UNUSED)
 {
   return 1;
 }
@@ -253,7 +253,7 @@ insert_r2 (unsigned insn,
 
 static int
 extract_r2 (unsigned insn ATTRIBUTE_UNUSED,
-	      int *invalid ATTRIBUTE_UNUSED)
+	    int *invalid ATTRIBUTE_UNUSED)
 {
   return 2;
 }
@@ -270,7 +270,7 @@ insert_r3 (unsigned insn,
 
 static int
 extract_r3 (unsigned insn ATTRIBUTE_UNUSED,
-	      int *invalid ATTRIBUTE_UNUSED)
+	    int *invalid ATTRIBUTE_UNUSED)
 {
   return 3;
 }
@@ -287,7 +287,7 @@ insert_sp (unsigned insn,
 
 static int
 extract_sp (unsigned insn ATTRIBUTE_UNUSED,
-	      int *invalid ATTRIBUTE_UNUSED)
+	    int *invalid ATTRIBUTE_UNUSED)
 {
   return 28;
 }
@@ -310,6 +310,23 @@ extract_gp (unsigned insn ATTRIBUTE_UNUSED,
 }
 
 static unsigned
+insert_pcl (unsigned insn,
+	   int value,
+	   const char **errmsg ATTRIBUTE_UNUSED)
+{
+  if (value != 63)
+    *errmsg = _("Register must be PCL.");
+  return insn;
+}
+
+static int
+extract_pcl (unsigned insn ATTRIBUTE_UNUSED,
+	    int *invalid ATTRIBUTE_UNUSED)
+{
+  return 63;
+}
+
+static unsigned
 insert_blink (unsigned insn,
 	      int value,
 	      const char **errmsg ATTRIBUTE_UNUSED)
@@ -326,11 +343,45 @@ extract_blink (unsigned insn ATTRIBUTE_UNUSED,
   return 31;
 }
 
+static unsigned
+insert_ilink1 (unsigned insn,
+	      int value,
+	      const char **errmsg ATTRIBUTE_UNUSED)
+{
+  if (value != 29)
+    *errmsg = _("Register must be ILINK1.");
+  return insn;
+}
+
+static int
+extract_ilink1 (unsigned insn ATTRIBUTE_UNUSED,
+	       int *invalid ATTRIBUTE_UNUSED)
+{
+  return 29;
+}
+
+static unsigned
+insert_ilink2 (unsigned insn,
+	      int value,
+	      const char **errmsg ATTRIBUTE_UNUSED)
+{
+  if (value != 30)
+    *errmsg = _("Register must be ILINK2.");
+  return insn;
+}
+
+static int
+extract_ilink2 (unsigned insn ATTRIBUTE_UNUSED,
+	       int *invalid ATTRIBUTE_UNUSED)
+{
+  return 30;
+}
+
 
 static unsigned
 insert_ras (unsigned insn,
-	      int value,
-	      const char **errmsg ATTRIBUTE_UNUSED)
+	    int value,
+	    const char **errmsg ATTRIBUTE_UNUSED)
 {
   switch (value)
     {
@@ -366,8 +417,8 @@ extract_ras (unsigned insn ATTRIBUTE_UNUSED,
 
 static unsigned
 insert_rbs (unsigned insn,
-	      int value,
-	      const char **errmsg ATTRIBUTE_UNUSED)
+	    int value,
+	    const char **errmsg ATTRIBUTE_UNUSED)
 {
   switch (value)
     {
@@ -403,8 +454,8 @@ extract_rbs (unsigned insn ATTRIBUTE_UNUSED,
 
 static unsigned
 insert_rcs (unsigned insn,
-	      int value,
-	      const char **errmsg ATTRIBUTE_UNUSED)
+	    int value,
+	    const char **errmsg ATTRIBUTE_UNUSED)
 {
   switch (value)
     {
@@ -646,6 +697,1296 @@ extract_simm21_32 (unsigned insn,
   return value;
 }
 
+/************************************************************************/
+/* New insert extract functions                                         */
+/************************************************************************/
+#ifndef INSERT_UIMM6_20
+#define INSERT_UIMM6_20
+/* mask = 00000000000000000000111111000000
+   insn = 00100bbb01101111FBBBuuuuuu001001 */
+static unsigned
+insert_uimm6_20 (unsigned insn ATTRIBUTE_UNUSED,
+		 int value ATTRIBUTE_UNUSED,
+		 const char **errmsg ATTRIBUTE_UNUSED)
+{
+  insn |= ((value >> 0) & 0x003f) << 6;
+
+  return insn;
+}
+#endif /* INSERT_UIMM6_20 */
+
+#ifndef EXTRACT_UIMM6_20
+#define EXTRACT_UIMM6_20
+/* mask = 00000000000000000000111111000000 */
+static int
+extract_uimm6_20 (unsigned insn ATTRIBUTE_UNUSED,
+		  int *invalid ATTRIBUTE_UNUSED)
+{
+  unsigned value = 0;
+
+  value |= ((insn >> 6) & 0x003f) << 0;
+
+  return value;
+}
+#endif /* EXTRACT_UIMM6_20 */
+
+#ifndef INSERT_SIMM12_20
+#define INSERT_SIMM12_20
+/* mask = 00000000000000000000111111222222
+   insn = 00110bbb10101000FBBBssssssSSSSSS */
+static unsigned
+insert_simm12_20 (unsigned insn ATTRIBUTE_UNUSED,
+		  int value ATTRIBUTE_UNUSED,
+		  const char **errmsg ATTRIBUTE_UNUSED)
+{
+
+  insn |= ((value >> 0) & 0x003f) << 6;
+  insn |= ((value >> 6) & 0x003f) << 0;
+
+  return insn;
+}
+#endif /* INSERT_SIMM12_20 */
+
+#ifndef EXTRACT_SIMM12_20
+#define EXTRACT_SIMM12_20
+/* mask = 00000000000000000000111111222222 */
+static  int
+extract_simm12_20 (unsigned insn ATTRIBUTE_UNUSED,
+		   int *invalid ATTRIBUTE_UNUSED)
+{
+  int value = 0;
+
+  value |= ((insn >> 6) & 0x003f) << 0;
+  value |= ((insn >> 0) & 0x003f) << 6;
+
+  /* Extend the sign */
+  int signbit = 1 << (12 - 1);
+  value = (value ^ signbit) - signbit;
+
+  return value;
+}
+#endif /* EXTRACT_SIMM12_20 */
+
+#ifndef INSERT_SIMM3_5_S
+#define INSERT_SIMM3_5_S
+/* mask = 0000011100000000
+   insn = 01110ssshhh001HH */
+static unsigned
+insert_simm3_5_s (unsigned insn ATTRIBUTE_UNUSED,
+		  int value ATTRIBUTE_UNUSED,
+		  const char **errmsg ATTRIBUTE_UNUSED)
+{
+  insn |= ((value >> 0) & 0x0007) << 8;
+
+  return insn;
+}
+#endif /* INSERT_SIMM3_5_S */
+
+#ifndef EXTRACT_SIMM3_5_S
+#define EXTRACT_SIMM3_5_S
+/* mask = 0000011100000000 */
+static  int
+extract_simm3_5_s (unsigned insn ATTRIBUTE_UNUSED,
+		   int *invalid ATTRIBUTE_UNUSED)
+{
+  int value = 0;
+
+  value |= ((insn >> 8) & 0x0007) << 0;
+
+  /* Extend the sign */
+  int signbit = 1 << (3 - 1);
+  value = (value ^ signbit) - signbit;
+
+  return value;
+}
+#endif /* EXTRACT_SIMM3_5_S */
+
+#ifndef INSERT_UIMM7_A32_11_S
+#define INSERT_UIMM7_A32_11_S
+/* mask = 0000000000011111
+   insn = 11000bbb100uuuuu */
+static unsigned
+insert_uimm7_a32_11_s (unsigned insn ATTRIBUTE_UNUSED,
+		       int value ATTRIBUTE_UNUSED,
+		       const char **errmsg ATTRIBUTE_UNUSED)
+{
+  if(value & 0x03)
+    *errmsg = _("Target address is not 32bit aligned.");
+
+  insn |= ((value >> 2) & 0x001f) << 0;
+
+  return insn;
+}
+#endif /* INSERT_UIMM7_A32_11_S */
+
+#ifndef EXTRACT_UIMM7_A32_11_S
+#define EXTRACT_UIMM7_A32_11_S
+/* mask = 0000000000011111 */
+static int
+extract_uimm7_a32_11_s (unsigned insn ATTRIBUTE_UNUSED,
+			int *invalid ATTRIBUTE_UNUSED)
+{
+  unsigned value = 0;
+
+  value |= ((insn >> 0) & 0x001f) << 2;
+
+  return value;
+}
+#endif /* EXTRACT_UIMM7_A32_11_S */
+
+#ifndef INSERT_UIMM7_9_S
+#define INSERT_UIMM7_9_S
+/* mask = 0000000001111111
+   insn = 11100bbb0uuuuuuu */
+static unsigned
+insert_uimm7_9_s (unsigned insn ATTRIBUTE_UNUSED,
+		  int value ATTRIBUTE_UNUSED,
+		  const char **errmsg ATTRIBUTE_UNUSED)
+{
+  insn |= ((value >> 0) & 0x007f) << 0;
+
+  return insn;
+}
+#endif /* INSERT_UIMM7_9_S */
+
+#ifndef EXTRACT_UIMM7_9_S
+#define EXTRACT_UIMM7_9_S
+/* mask = 0000000001111111 */
+static int
+extract_uimm7_9_s (unsigned insn ATTRIBUTE_UNUSED,
+		   int *invalid ATTRIBUTE_UNUSED)
+{
+  unsigned value = 0;
+
+  value |= ((insn >> 0) & 0x007f) << 0;
+
+
+  return value;
+}
+#endif /* EXTRACT_UIMM7_9_S */
+
+#ifndef INSERT_UIMM3_13_S
+#define INSERT_UIMM3_13_S
+/* mask = 0000000000000111
+   insn = 01101bbbccc00uuu */
+static unsigned
+insert_uimm3_13_s (unsigned insn ATTRIBUTE_UNUSED,
+		   int value ATTRIBUTE_UNUSED,
+		   const char **errmsg ATTRIBUTE_UNUSED)
+{
+
+  insn |= ((value >> 0) & 0x0007) << 0;
+
+  return insn;
+}
+#endif /* INSERT_UIMM3_13_S */
+
+#ifndef EXTRACT_UIMM3_13_S
+#define EXTRACT_UIMM3_13_S
+/* mask = 0000000000000111 */
+static int
+extract_uimm3_13_s (unsigned insn ATTRIBUTE_UNUSED,
+		    int *invalid ATTRIBUTE_UNUSED)
+{
+  unsigned value = 0;
+
+  value |= ((insn >> 0) & 0x0007) << 0;
+
+
+  return value;
+}
+#endif /* EXTRACT_UIMM3_13_S */
+#ifndef INSERT_SIMM11_A32_7_S
+#define INSERT_SIMM11_A32_7_S
+/* mask = 0000000111111111
+   insn = 1100111sssssssss */
+static unsigned
+insert_simm11_a32_7_s (unsigned insn ATTRIBUTE_UNUSED,
+		       int value ATTRIBUTE_UNUSED,
+		       const char **errmsg ATTRIBUTE_UNUSED)
+{
+  if(value & 0x03)
+    *errmsg = _("Target address is not 32bit aligned.");
+
+  insn |= ((value >> 2) & 0x01ff) << 0;
+
+  return insn;
+}
+#endif /* INSERT_SIMM11_A32_7_S */
+
+#ifndef EXTRACT_SIMM11_A32_7_S
+#define EXTRACT_SIMM11_A32_7_S
+/* mask = 0000000111111111 */
+static  int
+extract_simm11_a32_7_s (unsigned insn ATTRIBUTE_UNUSED,
+			int *invalid ATTRIBUTE_UNUSED)
+{
+  int value = 0;
+
+  value |= ((insn >> 0) & 0x01ff) << 2;
+
+  /* Extend the sign */
+  int signbit = 1 << (11 - 1);
+  value = (value ^ signbit) - signbit;
+
+  return value;
+}
+#endif /* EXTRACT_SIMM11_A32_7_S */
+
+#ifndef INSERT_UIMM6_13_S
+#define INSERT_UIMM6_13_S
+/* mask = 0000000002220111
+   insn = 01001bbb0UUU1uuu */
+static unsigned
+insert_uimm6_13_s (unsigned insn ATTRIBUTE_UNUSED,
+		   int value ATTRIBUTE_UNUSED,
+		   const char **errmsg ATTRIBUTE_UNUSED)
+{
+
+  insn |= ((value >> 0) & 0x0007) << 0;
+  insn |= ((value >> 3) & 0x0007) << 4;
+
+  return insn;
+}
+#endif /* INSERT_UIMM6_13_S */
+
+#ifndef EXTRACT_UIMM6_13_S
+#define EXTRACT_UIMM6_13_S
+/* mask = 0000000002220111 */
+static int
+extract_uimm6_13_s (unsigned insn ATTRIBUTE_UNUSED,
+		    int *invalid ATTRIBUTE_UNUSED)
+{
+  unsigned value = 0;
+
+  value |= ((insn >> 0) & 0x0007) << 0;
+  value |= ((insn >> 4) & 0x0007) << 3;
+
+
+  return value;
+}
+#endif /* EXTRACT_UIMM6_13_S */
+
+#ifndef INSERT_UIMM5_11_S
+#define INSERT_UIMM5_11_S
+/* mask = 0000000000011111
+   insn = 10111bbb000uuuuu */
+static unsigned
+insert_uimm5_11_s (unsigned insn ATTRIBUTE_UNUSED,
+		   int value ATTRIBUTE_UNUSED,
+		   const char **errmsg ATTRIBUTE_UNUSED)
+{
+
+  insn |= ((value >> 0) & 0x001f) << 0;
+
+  return insn;
+}
+#endif /* INSERT_UIMM5_11_S */
+
+#ifndef EXTRACT_UIMM5_11_S
+#define EXTRACT_UIMM5_11_S
+/* mask = 0000000000011111 */
+static int
+extract_uimm5_11_s (unsigned insn ATTRIBUTE_UNUSED,
+		    int *invalid ATTRIBUTE_UNUSED)
+{
+  unsigned value = 0;
+
+  value |= ((insn >> 0) & 0x001f) << 0;
+
+
+  return value;
+}
+#endif /* EXTRACT_UIMM5_11_S */
+
+#ifndef INSERT_SIMM9_A16_8
+#define INSERT_SIMM9_A16_8
+/* mask = 00000000111111102000000000000000
+   insn = 00001bbbsssssss1SBBBCCCCCCN01110 */
+static unsigned
+insert_simm9_a16_8 (unsigned insn ATTRIBUTE_UNUSED,
+		    int value ATTRIBUTE_UNUSED,
+		    const char **errmsg ATTRIBUTE_UNUSED)
+{
+  if(value & 0x01)
+    *errmsg = _("Target address is not 16bit aligned.");
+
+  insn |= ((value >> 1) & 0x007f) << 17;
+  insn |= ((value >> 8) & 0x0001) << 15;
+
+  return insn;
+}
+#endif /* INSERT_SIMM9_A16_8 */
+
+#ifndef EXTRACT_SIMM9_A16_8
+#define EXTRACT_SIMM9_A16_8
+/* mask = 00000000111111102000000000000000 */
+static  int
+extract_simm9_a16_8 (unsigned insn ATTRIBUTE_UNUSED,
+		     int *invalid ATTRIBUTE_UNUSED)
+{
+  int value = 0;
+
+  value |= ((insn >> 17) & 0x007f) << 1;
+  value |= ((insn >> 15) & 0x0001) << 8;
+
+  /* Extend the sign */
+  int signbit = 1 << (9 - 1);
+  value = (value ^ signbit) - signbit;
+
+  return value;
+}
+#endif /* EXTRACT_SIMM9_A16_8 */
+
+#ifndef INSERT_UIMM6_8
+#define INSERT_UIMM6_8
+/* mask = 00000000000000000000111111000000
+   insn = 00001bbbsssssss1SBBBuuuuuuN11110 */
+static unsigned
+insert_uimm6_8 (unsigned insn ATTRIBUTE_UNUSED,
+		int value ATTRIBUTE_UNUSED,
+		const char **errmsg ATTRIBUTE_UNUSED)
+{
+
+  insn |= ((value >> 0) & 0x003f) << 6;
+
+  return insn;
+}
+#endif /* INSERT_UIMM6_8 */
+
+#ifndef EXTRACT_UIMM6_8
+#define EXTRACT_UIMM6_8
+/* mask = 00000000000000000000111111000000 */
+static int
+extract_uimm6_8 (unsigned insn ATTRIBUTE_UNUSED,
+		 int *invalid ATTRIBUTE_UNUSED)
+{
+  unsigned value = 0;
+
+  value |= ((insn >> 6) & 0x003f) << 0;
+
+
+  return value;
+}
+#endif /* EXTRACT_UIMM6_8 */
+
+#ifndef INSERT_SIMM21_A16_5
+#define INSERT_SIMM21_A16_5
+/* mask = 00000111111111102222222222000000
+   insn = 00000ssssssssss0SSSSSSSSSSNQQQQQ */
+static unsigned
+insert_simm21_a16_5 (unsigned insn ATTRIBUTE_UNUSED,
+		     int value ATTRIBUTE_UNUSED,
+		     const char **errmsg ATTRIBUTE_UNUSED)
+{
+  if(value & 0x01)
+    *errmsg = _("Target address is not 16bit aligned.");
+
+  insn |= ((value >> 1) & 0x03ff) << 17;
+  insn |= ((value >> 11) & 0x03ff) << 6;
+
+  return insn;
+}
+#endif /* INSERT_SIMM21_A16_5 */
+
+#ifndef EXTRACT_SIMM21_A16_5
+#define EXTRACT_SIMM21_A16_5
+/* mask = 00000111111111102222222222000000 */
+static  int
+extract_simm21_a16_5 (unsigned insn ATTRIBUTE_UNUSED,
+		      int *invalid ATTRIBUTE_UNUSED)
+{
+  int value = 0;
+
+  value |= ((insn >> 17) & 0x03ff) << 1;
+  value |= ((insn >> 6) & 0x03ff) << 11;
+
+  /* Extend the sign */
+  int signbit = 1 << (21 - 1);
+  value = (value ^ signbit) - signbit;
+
+  return value;
+}
+#endif /* EXTRACT_SIMM21_A16_5 */
+
+#ifndef INSERT_SIMM25_A16_5
+#define INSERT_SIMM25_A16_5
+/* mask = 00000111111111102222222222003333
+   insn = 00000ssssssssss1SSSSSSSSSSNRtttt */
+static unsigned
+insert_simm25_a16_5 (unsigned insn ATTRIBUTE_UNUSED,
+		     int value ATTRIBUTE_UNUSED,
+		     const char **errmsg ATTRIBUTE_UNUSED)
+{
+  if(value & 0x01)
+    *errmsg = _("Target address is not 16bit aligned.");
+
+  insn |= ((value >> 1) & 0x03ff) << 17;
+  insn |= ((value >> 11) & 0x03ff) << 6;
+  insn |= ((value >> 21) & 0x000f) << 0;
+
+  return insn;
+}
+#endif /* INSERT_SIMM25_A16_5 */
+
+#ifndef EXTRACT_SIMM25_A16_5
+#define EXTRACT_SIMM25_A16_5
+/* mask = 00000111111111102222222222003333 */
+static  int
+extract_simm25_a16_5 (unsigned insn ATTRIBUTE_UNUSED,
+		      int *invalid ATTRIBUTE_UNUSED)
+{
+  int value = 0;
+
+  value |= ((insn >> 17) & 0x03ff) << 1;
+  value |= ((insn >> 6) & 0x03ff) << 11;
+  value |= ((insn >> 0) & 0x000f) << 21;
+
+  /* Extend the sign */
+  int signbit = 1 << (25 - 1);
+  value = (value ^ signbit) - signbit;
+
+  return value;
+}
+#endif /* EXTRACT_SIMM25_A16_5 */
+
+#ifndef INSERT_SIMM10_A16_7_S
+#define INSERT_SIMM10_A16_7_S
+/* mask = 0000000111111111
+   insn = 1111001sssssssss */
+static unsigned
+insert_simm10_a16_7_s (unsigned insn ATTRIBUTE_UNUSED,
+		       int value ATTRIBUTE_UNUSED,
+		       const char **errmsg ATTRIBUTE_UNUSED)
+{
+  if(value & 0x01)
+    *errmsg = _("Target address is not 16bit aligned.");
+
+  insn |= ((value >> 1) & 0x01ff) << 0;
+
+  return insn;
+}
+#endif /* INSERT_SIMM10_A16_7_S */
+
+#ifndef EXTRACT_SIMM10_A16_7_S
+#define EXTRACT_SIMM10_A16_7_S
+/* mask = 0000000111111111 */
+static  int
+extract_simm10_a16_7_s (unsigned insn ATTRIBUTE_UNUSED,
+			int *invalid ATTRIBUTE_UNUSED)
+{
+  int value = 0;
+
+  value |= ((insn >> 0) & 0x01ff) << 1;
+
+  /* Extend the sign */
+  int signbit = 1 << (10 - 1);
+  value = (value ^ signbit) - signbit;
+
+  return value;
+}
+#endif /* EXTRACT_SIMM10_A16_7_S */
+
+#ifndef INSERT_SIMM7_A16_10_S
+#define INSERT_SIMM7_A16_10_S
+/* mask = 0000000000111111
+   insn = 1111011000ssssss */
+static unsigned
+insert_simm7_a16_10_s (unsigned insn ATTRIBUTE_UNUSED,
+		       int value ATTRIBUTE_UNUSED,
+		       const char **errmsg ATTRIBUTE_UNUSED)
+{
+  if(value & 0x01)
+    *errmsg = _("Target address is not 16bit aligned.");
+
+  insn |= ((value >> 1) & 0x003f) << 0;
+
+  return insn;
+}
+#endif /* INSERT_SIMM7_A16_10_S */
+
+#ifndef EXTRACT_SIMM7_A16_10_S
+#define EXTRACT_SIMM7_A16_10_S
+/* mask = 0000000000111111 */
+static  int
+extract_simm7_a16_10_s (unsigned insn ATTRIBUTE_UNUSED,
+			int *invalid ATTRIBUTE_UNUSED)
+{
+  int value = 0;
+
+  value |= ((insn >> 0) & 0x003f) << 1;
+
+  /* Extend the sign */
+  int signbit = 1 << (7 - 1);
+  value = (value ^ signbit) - signbit;
+
+  return value;
+}
+#endif /* EXTRACT_SIMM7_A16_10_S */
+
+#ifndef INSERT_SIMM21_A32_5
+#define INSERT_SIMM21_A32_5
+/* mask = 00000111111111002222222222000000
+   insn = 00001sssssssss00SSSSSSSSSSNQQQQQ */
+static unsigned
+insert_simm21_a32_5 (unsigned insn ATTRIBUTE_UNUSED,
+		     int value ATTRIBUTE_UNUSED,
+		     const char **errmsg ATTRIBUTE_UNUSED)
+{
+  if(value & 0x03)
+    *errmsg = _("Target address is not 32bit aligned.");
+
+  insn |= ((value >> 2) & 0x01ff) << 18;
+  insn |= ((value >> 11) & 0x03ff) << 6;
+
+  return insn;
+}
+#endif /* INSERT_SIMM21_A32_5 */
+
+#ifndef EXTRACT_SIMM21_A32_5
+#define EXTRACT_SIMM21_A32_5
+/* mask = 00000111111111002222222222000000 */
+static  int
+extract_simm21_a32_5 (unsigned insn ATTRIBUTE_UNUSED,
+		      int *invalid ATTRIBUTE_UNUSED)
+{
+  int value = 0;
+
+  value |= ((insn >> 18) & 0x01ff) << 2;
+  value |= ((insn >> 6) & 0x03ff) << 11;
+
+  /* Extend the sign */
+  int signbit = 1 << (21 - 1);
+  value = (value ^ signbit) - signbit;
+
+  return value;
+}
+#endif /* EXTRACT_SIMM21_A32_5 */
+
+#ifndef INSERT_SIMM25_A32_5
+#define INSERT_SIMM25_A32_5
+/* mask = 00000111111111002222222222003333
+   insn = 00001sssssssss10SSSSSSSSSSNRtttt */
+static unsigned
+insert_simm25_a32_5 (unsigned insn ATTRIBUTE_UNUSED,
+		     int value ATTRIBUTE_UNUSED,
+		     const char **errmsg ATTRIBUTE_UNUSED)
+{
+  if(value & 0x03)
+    *errmsg = _("Target address is not 32bit aligned.");
+
+  insn |= ((value >> 2) & 0x01ff) << 18;
+  insn |= ((value >> 11) & 0x03ff) << 6;
+  insn |= ((value >> 21) & 0x000f) << 0;
+
+  return insn;
+}
+#endif /* INSERT_SIMM25_A32_5 */
+
+#ifndef EXTRACT_SIMM25_A32_5
+#define EXTRACT_SIMM25_A32_5
+/* mask = 00000111111111002222222222003333 */
+static  int
+extract_simm25_a32_5 (unsigned insn ATTRIBUTE_UNUSED,
+		      int *invalid ATTRIBUTE_UNUSED)
+{
+  int value = 0;
+
+  value |= ((insn >> 18) & 0x01ff) << 2;
+  value |= ((insn >> 6) & 0x03ff) << 11;
+  value |= ((insn >> 0) & 0x000f) << 21;
+
+  /* Extend the sign */
+  int signbit = 1 << (25 - 1);
+  value = (value ^ signbit) - signbit;
+
+  return value;
+}
+#endif /* EXTRACT_SIMM25_A32_5 */
+
+#ifndef INSERT_SIMM13_A32_5_S
+#define INSERT_SIMM13_A32_5_S
+/* mask = 0000011111111111
+   insn = 11111sssssssssss */
+static unsigned
+insert_simm13_a32_5_s (unsigned insn ATTRIBUTE_UNUSED,
+		       int value ATTRIBUTE_UNUSED,
+		       const char **errmsg ATTRIBUTE_UNUSED)
+{
+  if(value & 0x03)
+    *errmsg = _("Target address is not 32bit aligned.");
+
+  insn |= ((value >> 2) & 0x07ff) << 0;
+
+  return insn;
+}
+#endif /* INSERT_SIMM13_A32_5_S */
+
+#ifndef EXTRACT_SIMM13_A32_5_S
+#define EXTRACT_SIMM13_A32_5_S
+/* mask = 0000011111111111 */
+static  int
+extract_simm13_a32_5_s (unsigned insn ATTRIBUTE_UNUSED,
+			int *invalid ATTRIBUTE_UNUSED)
+{
+  int value = 0;
+
+  value |= ((insn >> 0) & 0x07ff) << 2;
+
+  /* Extend the sign */
+  int signbit = 1 << (13 - 1);
+  value = (value ^ signbit) - signbit;
+
+  return value;
+}
+#endif /* EXTRACT_SIMM13_A32_5_S */
+
+#ifndef INSERT_SIMM8_A16_9_S
+#define INSERT_SIMM8_A16_9_S
+/* mask = 0000000001111111
+   insn = 11101bbb1sssssss */
+static unsigned
+insert_simm8_a16_9_s (unsigned insn ATTRIBUTE_UNUSED,
+		      int value ATTRIBUTE_UNUSED,
+		      const char **errmsg ATTRIBUTE_UNUSED)
+{
+  if(value & 0x01)
+    *errmsg = _("Target address is not 16bit aligned.");
+
+  insn |= ((value >> 1) & 0x007f) << 0;
+
+  return insn;
+}
+#endif /* INSERT_SIMM8_A16_9_S */
+
+#ifndef EXTRACT_SIMM8_A16_9_S
+#define EXTRACT_SIMM8_A16_9_S
+/* mask = 0000000001111111 */
+static  int
+extract_simm8_a16_9_s (unsigned insn ATTRIBUTE_UNUSED,
+		       int *invalid ATTRIBUTE_UNUSED)
+{
+  int value = 0;
+
+  value |= ((insn >> 0) & 0x007f) << 1;
+
+  /* Extend the sign */
+  int signbit = 1 << (8 - 1);
+  value = (value ^ signbit) - signbit;
+
+  return value;
+}
+#endif /* EXTRACT_SIMM8_A16_9_S */
+
+#ifndef INSERT_UIMM3_23
+#define INSERT_UIMM3_23
+/* mask = 00000000000000000000000111000000
+   insn = 00100011011011110001RRRuuu111111 */
+static unsigned
+insert_uimm3_23 (unsigned insn ATTRIBUTE_UNUSED,
+		 int value ATTRIBUTE_UNUSED,
+		 const char **errmsg ATTRIBUTE_UNUSED)
+{
+  insn |= ((value >> 0) & 0x0007) << 6;
+
+  return insn;
+}
+#endif /* INSERT_UIMM3_23 */
+
+#ifndef EXTRACT_UIMM3_23
+#define EXTRACT_UIMM3_23
+/* mask = 00000000000000000000000111000000 */
+static int
+extract_uimm3_23 (unsigned insn ATTRIBUTE_UNUSED,
+		  int *invalid ATTRIBUTE_UNUSED)
+{
+  unsigned value = 0;
+
+  value |= ((insn >> 6) & 0x0007) << 0;
+
+  return value;
+}
+#endif /* EXTRACT_UIMM3_23 */
+
+#ifndef INSERT_UIMM10_6_S
+#define INSERT_UIMM10_6_S
+/* mask = 0000001111111111
+   insn = 010111uuuuuuuuuu */
+static unsigned
+insert_uimm10_6_s (unsigned insn ATTRIBUTE_UNUSED,
+		   int value ATTRIBUTE_UNUSED,
+		   const char **errmsg ATTRIBUTE_UNUSED)
+{
+  insn |= ((value >> 0) & 0x03ff) << 0;
+
+  return insn;
+}
+#endif /* INSERT_UIMM10_6_S */
+
+#ifndef EXTRACT_UIMM10_6_S
+#define EXTRACT_UIMM10_6_S
+/* mask = 0000001111111111 */
+static int
+extract_uimm10_6_s (unsigned insn ATTRIBUTE_UNUSED,
+		    int *invalid ATTRIBUTE_UNUSED)
+{
+  unsigned value = 0;
+
+  value |= ((insn >> 0) & 0x03ff) << 0;
+
+  return value;
+}
+#endif /* EXTRACT_UIMM10_6_S */
+
+#ifndef INSERT_UIMM6_11_S
+#define INSERT_UIMM6_11_S
+/* mask = 0000002200011110
+   insn = 110000UU111uuuu0 */
+static unsigned
+insert_uimm6_11_s (unsigned insn ATTRIBUTE_UNUSED,
+		   int value ATTRIBUTE_UNUSED,
+		   const char **errmsg ATTRIBUTE_UNUSED)
+{
+  insn |= ((value >> 0) & 0x000f) << 1;
+  insn |= ((value >> 4) & 0x0003) << 8;
+
+  return insn;
+}
+#endif /* INSERT_UIMM6_11_S */
+
+#ifndef EXTRACT_UIMM6_11_S
+#define EXTRACT_UIMM6_11_S
+/* mask = 0000002200011110 */
+static int
+extract_uimm6_11_s (unsigned insn ATTRIBUTE_UNUSED,
+		    int *invalid ATTRIBUTE_UNUSED)
+{
+  unsigned value = 0;
+
+  value |= ((insn >> 1) & 0x000f) << 0;
+  value |= ((insn >> 8) & 0x0003) << 4;
+
+  return value;
+}
+#endif /* EXTRACT_UIMM6_11_S */
+
+#ifndef INSERT_SIMM9_8
+#define INSERT_SIMM9_8
+/* mask = 00000000111111112000000000000000
+   insn = 00010bbbssssssssSBBBDaaZZXAAAAAA */
+static unsigned
+insert_simm9_8 (unsigned insn ATTRIBUTE_UNUSED,
+		int value ATTRIBUTE_UNUSED,
+		const char **errmsg ATTRIBUTE_UNUSED)
+{
+  insn |= ((value >> 0) & 0x00ff) << 16;
+  insn |= ((value >> 8) & 0x0001) << 15;
+
+  return insn;
+}
+#endif /* INSERT_SIMM9_8 */
+
+#ifndef EXTRACT_SIMM9_8
+#define EXTRACT_SIMM9_8
+/* mask = 00000000111111112000000000000000 */
+static  int
+extract_simm9_8 (unsigned insn ATTRIBUTE_UNUSED,
+		 int *invalid ATTRIBUTE_UNUSED)
+{
+  int value = 0;
+
+  value |= ((insn >> 16) & 0x00ff) << 0;
+  value |= ((insn >> 15) & 0x0001) << 8;
+
+  /* Extend the sign */
+  int signbit = 1 << (9 - 1);
+  value = (value ^ signbit) - signbit;
+
+  return value;
+}
+#endif /* EXTRACT_SIMM9_8 */
+
+#ifndef INSERT_UIMM10_A32_8_S
+#define INSERT_UIMM10_A32_8_S
+/* mask = 0000000011111111
+   insn = 11010bbbuuuuuuuu */
+static unsigned
+insert_uimm10_a32_8_s (unsigned insn ATTRIBUTE_UNUSED,
+		       int value ATTRIBUTE_UNUSED,
+		       const char **errmsg ATTRIBUTE_UNUSED)
+{
+  if(value & 0x03)
+    *errmsg = _("Target address is not 32bit aligned.");
+
+  insn |= ((value >> 2) & 0x00ff) << 0;
+
+  return insn;
+}
+#endif /* INSERT_UIMM10_A32_8_S */
+
+#ifndef EXTRACT_UIMM10_A32_8_S
+#define EXTRACT_UIMM10_A32_8_S
+/* mask = 0000000011111111 */
+static int
+extract_uimm10_a32_8_s (unsigned insn ATTRIBUTE_UNUSED,
+			int *invalid ATTRIBUTE_UNUSED)
+{
+  unsigned value = 0;
+
+  value |= ((insn >> 0) & 0x00ff) << 2;
+
+  return value;
+}
+#endif /* EXTRACT_UIMM10_A32_8_S */
+
+#ifndef INSERT_SIMM9_7_S
+#define INSERT_SIMM9_7_S
+/* mask = 0000000111111111
+   insn = 1100101sssssssss */
+static unsigned
+insert_simm9_7_s (unsigned insn ATTRIBUTE_UNUSED,
+		  int value ATTRIBUTE_UNUSED,
+		  const char **errmsg ATTRIBUTE_UNUSED)
+{
+  insn |= ((value >> 0) & 0x01ff) << 0;
+
+  return insn;
+}
+#endif /* INSERT_SIMM9_7_S */
+
+#ifndef EXTRACT_SIMM9_7_S
+#define EXTRACT_SIMM9_7_S
+/* mask = 0000000111111111 */
+static  int
+extract_simm9_7_s (unsigned insn ATTRIBUTE_UNUSED,
+		   int *invalid ATTRIBUTE_UNUSED)
+{
+  int value = 0;
+
+  value |= ((insn >> 0) & 0x01ff) << 0;
+
+  /* Extend the sign */
+  int signbit = 1 << (9 - 1);
+  value = (value ^ signbit) - signbit;
+
+  return value;
+}
+#endif /* EXTRACT_SIMM9_7_S */
+
+#ifndef INSERT_UIMM6_A16_11_S
+#define INSERT_UIMM6_A16_11_S
+/* mask = 0000000000011111
+   insn = 10010bbbcccuuuuu */
+static unsigned
+insert_uimm6_a16_11_s (unsigned insn ATTRIBUTE_UNUSED,
+		       int value ATTRIBUTE_UNUSED,
+		       const char **errmsg ATTRIBUTE_UNUSED)
+{
+  if(value & 0x01)
+    *errmsg = _("Target address is not 16bit aligned.");
+
+  insn |= ((value >> 1) & 0x001f) << 0;
+
+  return insn;
+}
+#endif /* INSERT_UIMM6_A16_11_S */
+
+#ifndef EXTRACT_UIMM6_A16_11_S
+#define EXTRACT_UIMM6_A16_11_S
+/* mask = 0000000000011111 */
+static int
+extract_uimm6_a16_11_s (unsigned insn ATTRIBUTE_UNUSED,
+			int *invalid ATTRIBUTE_UNUSED)
+{
+  unsigned value = 0;
+
+  value |= ((insn >> 0) & 0x001f) << 1;
+
+
+  return value;
+}
+#endif /* EXTRACT_UIMM6_A16_11_S */
+
+#ifndef INSERT_UIMM5_A32_11_S
+#define INSERT_UIMM5_A32_11_S
+/* mask = 0000020000011000
+   insn = 01000U00hhhuu1HH */
+static unsigned
+insert_uimm5_a32_11_s (unsigned insn ATTRIBUTE_UNUSED,
+		       int value ATTRIBUTE_UNUSED,
+		       const char **errmsg ATTRIBUTE_UNUSED)
+{
+  if(value & 0x03)
+    *errmsg = _("Target address is not 32bit aligned.");
+
+  insn |= ((value >> 2) & 0x0003) << 3;
+  insn |= ((value >> 4) & 0x0001) << 10;
+
+  return insn;
+}
+#endif /* INSERT_UIMM5_A32_11_S */
+
+#ifndef EXTRACT_UIMM5_A32_11_S
+#define EXTRACT_UIMM5_A32_11_S
+/* mask = 0000020000011000 */
+static int
+extract_uimm5_a32_11_s (unsigned insn ATTRIBUTE_UNUSED,
+			int *invalid ATTRIBUTE_UNUSED)
+{
+  unsigned value = 0;
+
+  value |= ((insn >> 3) & 0x0003) << 2;
+  value |= ((insn >> 10) & 0x0001) << 4;
+
+
+  return value;
+}
+#endif /* EXTRACT_UIMM5_A32_11_S */
+
+#ifndef INSERT_SIMM11_A32_13_S
+#define INSERT_SIMM11_A32_13_S
+/* mask = 0000022222200111
+   insn = 01010SSSSSS00sss */
+static unsigned
+insert_simm11_a32_13_s (unsigned insn ATTRIBUTE_UNUSED,
+			int value ATTRIBUTE_UNUSED,
+			const char **errmsg ATTRIBUTE_UNUSED)
+{
+  if(value & 0x03)
+    *errmsg = _("Target address is not 32bit aligned.");
+
+  insn |= ((value >> 2) & 0x0007) << 0;
+  insn |= ((value >> 5) & 0x003f) << 5;
+
+  return insn;
+}
+#endif /* INSERT_SIMM11_A32_13_S */
+
+#ifndef EXTRACT_SIMM11_A32_13_S
+#define EXTRACT_SIMM11_A32_13_S
+/* mask = 0000022222200111 */
+static  int
+extract_simm11_a32_13_s (unsigned insn ATTRIBUTE_UNUSED,
+			 int *invalid ATTRIBUTE_UNUSED)
+{
+  int value = 0;
+
+  value |= ((insn >> 0) & 0x0007) << 2;
+  value |= ((insn >> 5) & 0x003f) << 5;
+
+  /* Extend the sign */
+  int signbit = 1 << (11 - 1);
+  value = (value ^ signbit) - signbit;
+
+  return value;
+}
+#endif /* EXTRACT_SIMM11_A32_13_S */
+
+#ifndef INSERT_UIMM7_13_S
+#define INSERT_UIMM7_13_S
+/* mask = 0000000022220111
+   insn = 01010bbbUUUU1uuu */
+static unsigned
+insert_uimm7_13_s (unsigned insn ATTRIBUTE_UNUSED,
+		   int value ATTRIBUTE_UNUSED,
+		   const char **errmsg ATTRIBUTE_UNUSED)
+{
+
+  insn |= ((value >> 0) & 0x0007) << 0;
+  insn |= ((value >> 3) & 0x000f) << 4;
+
+  return insn;
+}
+#endif /* INSERT_UIMM7_13_S */
+
+#ifndef EXTRACT_UIMM7_13_S
+#define EXTRACT_UIMM7_13_S
+/* mask = 0000000022220111 */
+static int
+extract_uimm7_13_s (unsigned insn ATTRIBUTE_UNUSED,
+		    int *invalid ATTRIBUTE_UNUSED)
+{
+  unsigned value = 0;
+
+  value |= ((insn >> 0) & 0x0007) << 0;
+  value |= ((insn >> 4) & 0x000f) << 3;
+
+
+  return value;
+}
+#endif /* EXTRACT_UIMM7_13_S */
+
+#ifndef INSERT_UIMM6_A16_21
+#define INSERT_UIMM6_A16_21
+/* mask = 00000000000000000000011111000000
+   insn = 00101bbb01001100RBBBRuuuuuAAAAAA */
+static unsigned
+insert_uimm6_a16_21 (unsigned insn ATTRIBUTE_UNUSED,
+		     int value ATTRIBUTE_UNUSED,
+		     const char **errmsg ATTRIBUTE_UNUSED)
+{
+  if(value & 0x01)
+    *errmsg = _("Target address is not 16bit aligned.");
+
+  insn |= ((value >> 1) & 0x001f) << 6;
+
+  return insn;
+}
+#endif /* INSERT_UIMM6_A16_21 */
+
+#ifndef EXTRACT_UIMM6_A16_21
+#define EXTRACT_UIMM6_A16_21
+/* mask = 00000000000000000000011111000000 */
+static int
+extract_uimm6_a16_21 (unsigned insn ATTRIBUTE_UNUSED,
+		      int *invalid ATTRIBUTE_UNUSED)
+{
+  unsigned value = 0;
+
+  value |= ((insn >> 6) & 0x001f) << 1;
+
+
+  return value;
+}
+#endif /* EXTRACT_UIMM6_A16_21 */
+
+#ifndef INSERT_UIMM7_11_S
+#define INSERT_UIMM7_11_S
+/* mask = 0000022200011110
+   insn = 11000UUU110uuuu0 */
+static unsigned
+insert_uimm7_11_s (unsigned insn ATTRIBUTE_UNUSED,
+		   int value ATTRIBUTE_UNUSED,
+		   const char **errmsg ATTRIBUTE_UNUSED)
+{
+
+  insn |= ((value >> 0) & 0x000f) << 1;
+  insn |= ((value >> 4) & 0x0007) << 8;
+
+  return insn;
+}
+#endif /* INSERT_UIMM7_11_S */
+
+#ifndef EXTRACT_UIMM7_11_S
+#define EXTRACT_UIMM7_11_S
+/* mask = 0000022200011110 */
+static int
+extract_uimm7_11_s (unsigned insn ATTRIBUTE_UNUSED,
+		    int *invalid ATTRIBUTE_UNUSED)
+{
+  unsigned value = 0;
+
+  value |= ((insn >> 1) & 0x000f) << 0;
+  value |= ((insn >> 8) & 0x0007) << 4;
+
+
+  return value;
+}
+#endif /* EXTRACT_UIMM7_11_S */
+
+#ifndef INSERT_UIMM7_A16_20
+#define INSERT_UIMM7_A16_20
+/* mask = 00000000000000000000111111000000
+   insn = 00100RRR111010000RRRuuuuuu1QQQQQ */
+static unsigned
+insert_uimm7_a16_20 (unsigned insn ATTRIBUTE_UNUSED,
+		     int value ATTRIBUTE_UNUSED,
+		     const char **errmsg ATTRIBUTE_UNUSED)
+{
+  if(value & 0x01)
+    *errmsg = _("Target address is not 16bit aligned.");
+
+  insn |= ((value >> 1) & 0x003f) << 6;
+
+  return insn;
+}
+#endif /* INSERT_UIMM7_A16_20 */
+
+#ifndef EXTRACT_UIMM7_A16_20
+#define EXTRACT_UIMM7_A16_20
+/* mask = 00000000000000000000111111000000 */
+static int
+extract_uimm7_a16_20 (unsigned insn ATTRIBUTE_UNUSED,
+		      int *invalid ATTRIBUTE_UNUSED)
+{
+  unsigned value = 0;
+
+  value |= ((insn >> 6) & 0x003f) << 1;
+
+
+  return value;
+}
+#endif /* EXTRACT_UIMM7_A16_20 */
+
+#ifndef INSERT_SIMM13_A16_20
+#define INSERT_SIMM13_A16_20
+/* mask = 00000000000000000000111111222222
+   insn = 00100RRR101010000RRRssssssSSSSSS */
+static unsigned
+insert_simm13_a16_20 (unsigned insn ATTRIBUTE_UNUSED,
+		      int value ATTRIBUTE_UNUSED,
+		      const char **errmsg ATTRIBUTE_UNUSED)
+{
+  if(value & 0x01)
+    *errmsg = _("Target address is not 16bit aligned.");
+
+  insn |= ((value >> 1) & 0x003f) << 6;
+  insn |= ((value >> 7) & 0x003f) << 0;
+
+  return insn;
+}
+#endif /* INSERT_SIMM13_A16_20 */
+
+#ifndef EXTRACT_SIMM13_A16_20
+#define EXTRACT_SIMM13_A16_20
+/* mask = 00000000000000000000111111222222 */
+static  int
+extract_simm13_a16_20 (unsigned insn ATTRIBUTE_UNUSED,
+		       int *invalid ATTRIBUTE_UNUSED)
+{
+  int value = 0;
+
+  value |= ((insn >> 6) & 0x003f) << 1;
+  value |= ((insn >> 0) & 0x003f) << 7;
+
+  /* Extend the sign */
+  int signbit = 1 << (13 - 1);
+  value = (value ^ signbit) - signbit;
+
+  return value;
+}
+#endif /* EXTRACT_SIMM13_A16_20 */
+
+#ifndef INSERT_UIMM8_8_S
+#define INSERT_UIMM8_8_S
+/* mask = 0000000011111111
+   insn = 11011bbbuuuuuuuu */
+static unsigned
+insert_uimm8_8_s (unsigned insn ATTRIBUTE_UNUSED,
+		  int value ATTRIBUTE_UNUSED,
+		  const char **errmsg ATTRIBUTE_UNUSED)
+{
+
+  insn |= ((value >> 0) & 0x00ff) << 0;
+
+  return insn;
+}
+#endif /* INSERT_UIMM8_8_S */
+
+#ifndef EXTRACT_UIMM8_8_S
+#define EXTRACT_UIMM8_8_S
+/* mask = 0000000011111111 */
+static int
+extract_uimm8_8_s (unsigned insn ATTRIBUTE_UNUSED,
+		   int *invalid ATTRIBUTE_UNUSED)
+{
+  unsigned value = 0;
+
+  value |= ((insn >> 0) & 0x00ff) << 0;
+
+
+  return value;
+}
+#endif /* EXTRACT_UIMM8_8_S */
+
+#ifndef INSERT_UIMM6_5_S
+#define INSERT_UIMM6_5_S
+/* mask = 0000011111100000
+   insn = 01111uuuuuu11111 */
+static unsigned
+insert_uimm6_5_s (unsigned insn ATTRIBUTE_UNUSED,
+		  int value ATTRIBUTE_UNUSED,
+		  const char **errmsg ATTRIBUTE_UNUSED)
+{
+
+  insn |= ((value >> 0) & 0x003f) << 5;
+
+  return insn;
+}
+#endif /* INSERT_UIMM6_5_S */
+
+#ifndef EXTRACT_UIMM6_5_S
+#define EXTRACT_UIMM6_5_S
+/* mask = 0000011111100000 */
+static int
+extract_uimm6_5_s (unsigned insn ATTRIBUTE_UNUSED,
+		   int *invalid ATTRIBUTE_UNUSED)
+{
+  unsigned value = 0;
+
+  value |= ((insn >> 5) & 0x003f) << 0;
+
+
+  return value;
+}
+#endif /* EXTRACT_UIMM6_5_S */
+
+#ifndef INSERT_W6
+#define INSERT_W6
+/* mask = 00000000000000000000111111000000 
+   insn = 00011bbb000000000BBBwwwwwwDaaZZ1 */
+static unsigned
+insert_w6 (unsigned insn ATTRIBUTE_UNUSED,
+  	int value ATTRIBUTE_UNUSED,
+  	const char **errmsg ATTRIBUTE_UNUSED)
+{
+  insn |= ((value >> 0) & 0x003f) << 6;
+
+  return insn;
+}
+#endif /* INSERT_W6 */
+
+#ifndef EXTRACT_W6
+#define EXTRACT_W6
+/* mask = 00000000000000000000111111000000 */
+static int
+extract_w6 (unsigned insn ATTRIBUTE_UNUSED,
+  	int *invalid ATTRIBUTE_UNUSED)
+{
+  unsigned value = 0;
+
+  value |= ((insn >> 6) & 0x003f) << 0;
+
+  return value;
+}
+#endif /* EXTRACT_W6 */
+
+#ifndef INSERT_G_S
+#define INSERT_G_S
+/* mask = 0000011100022000 
+   insn = 01000ggghhhGG0HH */
+static unsigned
+insert_g_s (unsigned insn ATTRIBUTE_UNUSED,
+  	int value ATTRIBUTE_UNUSED,
+  	const char **errmsg ATTRIBUTE_UNUSED)
+{
+  insn |= ((value >> 0) & 0x0007) << 8;
+  insn |= ((value >> 3) & 0x0003) << 3;
+
+  return insn;
+}
+#endif /* INSERT_G_S */
+
+#ifndef EXTRACT_G_S
+#define EXTRACT_G_S
+/* mask = 0000011100022000 */
+static int
+extract_g_s (unsigned insn ATTRIBUTE_UNUSED,
+  	int *invalid ATTRIBUTE_UNUSED)
+{
+  int value = 0;
+
+  value |= ((insn >> 8) & 0x0007) << 0;
+  value |= ((insn >> 3) & 0x0003) << 3;
+
+  /* Extend the sign */
+  int signbit = 1 << (6 - 1);
+  value = (value ^ signbit) - signbit;
+
+  return value;
+}
+#endif /* EXTRACT_G_S */
+
 
 /* Abbreviations for instruction subsets.  */
 #define BASE			ARC_OPCODE_BASE
@@ -769,10 +2110,12 @@ const struct arc_flag_operand arc_flag_operands[] =
     { "as", 3, 2, 9, 1 },
 #define F_AS22     (F_AS9 + 1)
     { "as", 3, 2, 22, 1 },
+#define F_ASFAKE   (F_AS22 + 1)
+    { "as", 0, 0, 0, 1 },
     /*  { "as", 3, ADDRESS22S_AC, 0 },*/
 
     /* Cache bypass. */
-#define F_DI5     (F_AS22 + 1)
+#define F_DI5     (F_ASFAKE + 1)
     { "di", 1, 1, 5, 1 },
 #define F_DI11    (F_DI5 + 1)
     { "di", 1, 1, 11, 1 },
@@ -789,7 +2132,12 @@ const struct arc_flag_operand arc_flag_operands[] =
 #define F_H7     (F_H1 + 1)
     { "h", 2, 2, 7, 1 },
 #define F_H17    (F_H7 + 1)
-    { "h", 2, 2, 17, 1 }
+    { "h", 2, 2, 17, 1 },
+
+    /* Fake Flags */
+#define F_NE   (F_H17 + 1)
+    { "ne", 0, 0, 0, 1 },
+
   };
 const unsigned arc_num_flag_operands = sizeof(arc_flag_operands)/sizeof(*arc_flag_operands);
 
@@ -810,10 +2158,13 @@ const struct arc_flag_class arc_flag_classes[] =
 	   F_GE, F_LT, F_LE, F_HI, F_LS, F_PNZ, F_NULL } },
 
 #define C_AA_ADDR3  (C_CC + 1)
+#define C_AA27      (C_CC + 1)
     { 0, { F_A3, F_AW3, F_AB3, F_AS3, F_NULL } },
 #define C_AA_ADDR9  (C_AA_ADDR3 + 1)
+#define C_AA21       (C_AA_ADDR3 + 1)
     { 0, { F_A9, F_AW9, F_AB9, F_AS9, F_NULL } },
 #define C_AA_ADDR22 (C_AA_ADDR9 + 1)
+#define C_AA8      (C_AA_ADDR9 + 1)
     { 0, { F_A22, F_AW22, F_AB22, F_AS22, F_NULL } },
 
 #define C_F         (C_AA_ADDR22 + 1)
@@ -824,8 +2175,35 @@ const struct arc_flag_class arc_flag_classes[] =
 #define C_D         (C_T + 1)
     { 0, { F_ND, F_D, F_NULL } },
 
-#define C_DHARD    (C_D + 1)
+#define C_DHARD     (C_D + 1)
     { 0, { F_D, F_NULL } },
+
+#define C_DI20      (C_DHARD + 1)
+    { 0, { F_DI11 }},
+#define C_DI16      (C_DI20 + 1)
+    { 0, { F_DI15 }},
+#define C_DI26      (C_DI16 + 1)
+    { 0, { F_DI5 }},
+
+#define C_X25       (C_DI26 + 1)
+    { 0, { F_SIGN6 }},
+#define C_X15      (C_X25 + 1)
+    { 0, { F_SIGN16 }},
+#define C_X        (C_X15 + 1)
+    { 0, { F_SIGN6 }}, /*FIXME! needs to be fake */
+
+#define C_ZZ13        (C_X + 1)
+    { 0, { F_SIZEB17, F_SIZEW17, F_H17}},
+#define C_ZZ23        (C_ZZ13 + 1)
+    { 0, { F_SIZEB7, F_SIZEW7, F_H7}},
+#define C_ZZ29        (C_ZZ23 + 1)
+    { 0, { F_SIZEB1, F_SIZEW1, F_H1}},
+
+#define C_AS        (C_ZZ29 + 1)
+    { 0, { F_ASFAKE}},
+
+#define C_NE        (C_AS + 1)
+    { 0, { F_NE}},
   };
 
 /* Common combinations of FLAGS.  */
@@ -858,59 +2236,93 @@ const struct arc_operand arc_operands[] =
 
     /* The plain integer register fields. Used by short instructions. */
 #define RA16		(RBdup + 1)
+#define RA_S		(RBdup + 1)
     { 4, 0, 0, ARC_OPERAND_IR, insert_ras, extract_ras },
 #define RB16		(RA16 + 1)
+#define RB_S		(RA16 + 1)
     { 4, 8, 0, ARC_OPERAND_IR, insert_rbs, extract_rbs },
 #define RB16dup		(RB16 + 1)
+#define RB_Sdup		(RB16 + 1)
     { 4, 8, 0, ARC_OPERAND_IR | ARC_OPERAND_DUPLICATE, insert_rbs, extract_rbs },
 #define RC16		(RB16dup + 1)
+#define RC_S		(RB16dup + 1)
     { 4, 5, 0, ARC_OPERAND_IR, insert_rcs, extract_rcs },
 #define R6H             (RC16 + 1)   /* 6bit register field 'h' used by V1 cpus*/
     { 6, 5, 0, ARC_OPERAND_IR, insert_rhv1, extract_rhv1 },
 #define R5H             (R6H + 1)    /* 5bit register field 'h' used by V2 cpus*/
+#define RH_S            (R6H + 1)    /* 5bit register field 'h' used by V2 cpus*/
     { 5, 5, 0, ARC_OPERAND_IR, insert_rhv2, extract_rhv2 },
 #define R5Hdup          (R5H + 1)
+#define RH_Sdup         (R5H + 1)
     { 5, 5, 0, ARC_OPERAND_IR | ARC_OPERAND_DUPLICATE, insert_rhv2, extract_rhv2 },
 
+#define RG              (R5Hdup + 1)
+#define G_S             (R5Hdup + 1)
+    { 5, 5, 0, ARC_OPERAND_IR, insert_g_s, extract_g_s },
+
     /* Fix registers. */
-#define R0              (R5Hdup + 1)
+#define R0              (RG + 1)
+#define R0_S            (RG + 1)
     { 0, 0, 0, ARC_OPERAND_IR, insert_r0, extract_r0 },
 #define R1              (R0 + 1)
+#define R1_S            (R0 + 1)
     { 1, 0, 0, ARC_OPERAND_IR, insert_r1, extract_r1 },
 #define R2              (R1 + 1)
+#define R2_S            (R1 + 1)
     { 2, 0, 0, ARC_OPERAND_IR, insert_r2, extract_r2 },
 #define R3              (R2 + 1)
+#define R3_S            (R2 + 1)
     { 2, 0, 0, ARC_OPERAND_IR, insert_r3, extract_r3 },
 #define SP              (R3 + 1)
+#define SP_S            (R3 + 1)
     { 5, 0, 0, ARC_OPERAND_IR, insert_sp, extract_sp },
 #define SPdup           (SP + 1)
+#define SP_Sdup         (SP + 1)
     { 5, 0, 0, ARC_OPERAND_IR | ARC_OPERAND_DUPLICATE, insert_sp, extract_sp },
 #define GP              (SPdup + 1)
+#define GP_S            (SPdup + 1)
     { 5, 0, 0, ARC_OPERAND_IR, insert_gp, extract_gp },
-#define BLINK           (GP + 1)
+
+#define PCL_S           (GP + 1)
+    { 5, 0, 0, ARC_OPERAND_IR, insert_pcl, extract_pcl },
+
+#define BLINK           (PCL_S + 1)
+#define BLINK_S         (PCL_S + 1)
     { 5, 0, 0, ARC_OPERAND_IR, insert_blink, extract_blink },
+
+#define ILINK1          (BLINK + 1)
+    { 5, 0, 0, ARC_OPERAND_IR, insert_ilink1, extract_ilink1 },
+#define ILINK2          (ILINK1 + 1)
+    { 5, 0, 0, ARC_OPERAND_IR, insert_ilink2, extract_ilink2 },
 
 
     /* Long immediate. */
-#define LIMM 		(BLINK + 1)
+#define LIMM 		(ILINK2 + 1)
+#define LIMM_S		(ILINK2 + 1)
     { 32, 0, BFD_RELOC_ARC_32_ME, ARC_OPERAND_LIMM, insert_limm, 0 },
 #define LIMMdup		(LIMM + 1)
     { 32, 0, 0, ARC_OPERAND_LIMM | ARC_OPERAND_DUPLICATE, insert_limm, 0 },
 
     /* Special operands. */
 #define ZA              (LIMMdup + 1)
+#define ZB              (LIMMdup + 1)
+#define ZA_S            (LIMMdup + 1)
+#define ZB_S            (LIMMdup + 1)
+#define ZC_S            (LIMMdup + 1)
     { 0, 0, 0, ARC_OPERAND_UNSIGNED, insert_za, 0 },
 
+    /* Fake operand to handle the T flag. */
+#define FKT             (ZA + 1)
+    { 1, 3, 0, ARC_OPERAND_FAKE, insert_Ybit, 0 },
+
+#if 0
     /* The signed "9-bit" immediate used for bbit instructions. */
 #define BBS9            (ZA + 1)
     { 8, 17, -BBS9, ARC_OPERAND_SIGNED | ARC_OPERAND_PCREL | ARC_OPERAND_ALIGNED16,
       insert_bbs9, extract_bbs9 },
-    /* Fake operand to handle the T flag. */
-#define FKT             (BBS9 + 1)
-    { 1, 3, 0, ARC_OPERAND_FAKE, insert_Ybit, 0 },
 
     /* The unsigned 6-bit immediate used in most arithmetic instructions. */
-#define UIMM6           (FKT + 1)
+#define UIMM6           (BBS9 + 1)
     { 6, 6, 0, ARC_OPERAND_UNSIGNED, 0, 0 },
     /* 12-bit signed immediate value */
 #define SIMM12          (UIMM6 + 1)
@@ -952,7 +2364,7 @@ const struct arc_operand arc_operands[] =
     { 6, 6, 0, ARC_OPERAND_UNSIGNED | ARC_OPERAND_ALIGNED16, 0, 0 },
     /* 25-bit signed immediate value, 16bit aligned. To be used by B
        type instructions. */
-#define SIMM25_16       (UIMM5S + 1)
+#define SIMM25_16       (UIMM6_16 + 1)
     { 25, 0, 0, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED16,
       insert_simm25_16, extract_simm25_16 },
     /* 10-bit signed immediate value, 16 bit aligned. Used by
@@ -990,6 +2402,153 @@ const struct arc_operand arc_operands[] =
        type instructions. */
 #define SIMM8_16       (SIMM21_32 + 1)
     { 8, 0, 0, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED16, 0, 0 },
+
+#else /**************** New operands *****************/
+
+    /* UIMM6_20 mask = 00000000000000000000111111000000 */
+#define UIMM6_20       (FKT + 1)
+    {6, 0, 0, ARC_OPERAND_UNSIGNED, insert_uimm6_20, extract_uimm6_20},
+
+    /* SIMM12_20 mask = 00000000000000000000111111222222 */
+#define SIMM12_20       (UIMM6_20 + 1)
+    {12, 0, 0, ARC_OPERAND_SIGNED, insert_simm12_20, extract_simm12_20},
+
+    /* SIMM3_5_S mask = 0000011100000000 */
+#define SIMM3_5_S       (SIMM12_20 + 1)
+    {3, 0, 0, ARC_OPERAND_SIGNED | ARC_OPERAND_NCHK, insert_simm3s, extract_simm3s},
+
+    /* UIMM7_A32_11_S mask = 0000000000011111 */
+#define UIMM7_A32_11_S       (SIMM3_5_S + 1)
+    {7, 0, 0, ARC_OPERAND_UNSIGNED | ARC_OPERAND_ALIGNED32 | ARC_OPERAND_TRUNCATE, insert_uimm7_a32_11_s, extract_uimm7_a32_11_s},
+
+    /* UIMM7_9_S mask = 0000000001111111 */
+#define UIMM7_9_S       (UIMM7_A32_11_S + 1)
+    {7, 0, 0, ARC_OPERAND_UNSIGNED, insert_uimm7_9_s, extract_uimm7_9_s},
+
+    /* UIMM3_13_S mask = 0000000000000111 */
+#define UIMM3_13_S       (UIMM7_9_S + 1)
+    {3, 0, 0, ARC_OPERAND_UNSIGNED, insert_uimm3_13_s, extract_uimm3_13_s},
+
+    /* SIMM11_A32_7_S mask = 0000000111111111 */
+#define SIMM11_A32_7_S       (UIMM3_13_S + 1)
+    {11, 0, 0, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED32 | ARC_OPERAND_TRUNCATE, insert_simm11_a32_7_s, extract_simm11_a32_7_s},
+
+    /* UIMM6_13_S mask = 0000000002220111 */
+#define UIMM6_13_S       (SIMM11_A32_7_S + 1)
+    {6, 0, 0, ARC_OPERAND_UNSIGNED, insert_uimm6_13_s, extract_uimm6_13_s},
+    /* UIMM5_11_S mask = 0000000000011111 */
+#define UIMM5_11_S       (UIMM6_13_S + 1)
+    {5, 0, 0, ARC_OPERAND_UNSIGNED, insert_uimm5_11_s, extract_uimm5_11_s},
+
+    /* SIMM9_A16_8 mask = 00000000111111102000000000000000 */
+#define SIMM9_A16_8       (UIMM5_11_S + 1)
+    {9, 0, -SIMM9_A16_8, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED16 | ARC_OPERAND_PCREL | ARC_OPERAND_TRUNCATE, insert_simm9_a16_8, extract_simm9_a16_8},
+
+    /* UIMM6_8 mask = 00000000000000000000111111000000 */
+#define UIMM6_8       (SIMM9_A16_8 + 1)
+    {6, 0, 0, ARC_OPERAND_UNSIGNED, insert_uimm6_8, extract_uimm6_8},
+
+    /* SIMM21_A16_5 mask = 00000111111111102222222222000000 */
+#define SIMM21_A16_5       (UIMM6_8 + 1)
+    {21, 0, 0, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED16 | ARC_OPERAND_TRUNCATE, insert_simm21_a16_5, extract_simm21_a16_5},
+
+    /* SIMM25_A16_5 mask = 00000111111111102222222222003333 */
+#define SIMM25_A16_5       (SIMM21_A16_5 + 1)
+    {25, 0, 0, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED16 | ARC_OPERAND_TRUNCATE, insert_simm25_a16_5, extract_simm25_a16_5},
+
+    /* SIMM10_A16_7_S mask = 0000000111111111 */
+#define SIMM10_A16_7_S       (SIMM25_A16_5 + 1)
+    {10, 0, 0, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED16 | ARC_OPERAND_TRUNCATE, insert_simm10_a16_7_s, extract_simm10_a16_7_s},
+
+    /* SIMM7_A16_10_S mask = 0000000000111111 */
+#define SIMM7_A16_10_S       (SIMM10_A16_7_S + 1)
+    {7, 0, 0, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED16 | ARC_OPERAND_TRUNCATE, insert_simm7_a16_10_s, extract_simm7_a16_10_s},
+
+    /* SIMM21_A32_5 mask = 00000111111111002222222222000000 */
+#define SIMM21_A32_5       (SIMM7_A16_10_S + 1)
+    {21, 0, 0, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED32 | ARC_OPERAND_TRUNCATE, insert_simm21_a32_5, extract_simm21_a32_5},
+
+    /* SIMM25_A32_5 mask = 00000111111111002222222222003333 */
+#define SIMM25_A32_5       (SIMM21_A32_5 + 1)
+    {25, 0, 0, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED32 | ARC_OPERAND_TRUNCATE, insert_simm25_a32_5, extract_simm25_a32_5},
+
+    /* SIMM13_A32_5_S mask = 0000011111111111 */
+#define SIMM13_A32_5_S       (SIMM25_A32_5 + 1)
+    {13, 0, 0, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED32 | ARC_OPERAND_TRUNCATE, insert_simm13_a32_5_s, extract_simm13_a32_5_s},
+
+    /* SIMM8_A16_9_S mask = 0000000001111111 */
+#define SIMM8_A16_9_S       (SIMM13_A32_5_S + 1)
+    {8, 0, 0, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED16 | ARC_OPERAND_TRUNCATE, insert_simm8_a16_9_s, extract_simm8_a16_9_s},
+
+    /* UIMM3_23 mask = 00000000000000000000000111000000 */
+#define UIMM3_23       (SIMM8_A16_9_S + 1)
+    {3, 0, 0, ARC_OPERAND_UNSIGNED, insert_uimm3_23, extract_uimm3_23},
+
+    /* UIMM10_6_S mask = 0000001111111111 */
+#define UIMM10_6_S       (UIMM3_23 + 1)
+    {10, 0, 0, ARC_OPERAND_UNSIGNED, insert_uimm10_6_s, extract_uimm10_6_s},
+
+    /* UIMM6_11_S mask = 0000002200011110 */
+#define UIMM6_11_S       (UIMM10_6_S + 1)
+    {6, 0, 0, ARC_OPERAND_UNSIGNED, insert_uimm6_11_s, extract_uimm6_11_s},
+
+    /* SIMM9_8 mask = 00000000111111112000000000000000 */
+#define SIMM9_8       (UIMM6_11_S + 1)
+    {9, 0, 0, ARC_OPERAND_SIGNED | ARC_OPERAND_IGNORE, insert_simm9_8, extract_simm9_8},
+
+    /* UIMM10_A32_8_S mask = 0000000011111111 */
+#define UIMM10_A32_8_S       (SIMM9_8 + 1)
+    {10, 0, 0, ARC_OPERAND_UNSIGNED | ARC_OPERAND_ALIGNED32 | ARC_OPERAND_TRUNCATE, insert_uimm10_a32_8_s, extract_uimm10_a32_8_s},
+
+    /* SIMM9_7_S mask = 0000000111111111 */
+#define SIMM9_7_S       (UIMM10_A32_8_S + 1)
+    {9, 0, 0, ARC_OPERAND_SIGNED, insert_simm9_7_s, extract_simm9_7_s},
+
+    /* UIMM6_A16_11_S mask = 0000000000011111 */
+#define UIMM6_A16_11_S       (SIMM9_7_S + 1)
+    {6, 0, 0, ARC_OPERAND_UNSIGNED | ARC_OPERAND_ALIGNED16 | ARC_OPERAND_TRUNCATE, insert_uimm6_a16_11_s, extract_uimm6_a16_11_s},
+
+    /* UIMM5_A32_11_S mask = 0000020000011000 */
+#define UIMM5_A32_11_S       (UIMM6_A16_11_S + 1)
+    {5, 0, 0, ARC_OPERAND_UNSIGNED | ARC_OPERAND_ALIGNED32 | ARC_OPERAND_TRUNCATE, insert_uimm5_a32_11_s, extract_uimm5_a32_11_s},
+
+    /* SIMM11_A32_13_S mask = 0000022222200111 */
+#define SIMM11_A32_13_S       (UIMM5_A32_11_S + 1)
+    {11, 0, 0, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED32 | ARC_OPERAND_TRUNCATE, insert_simm11_a32_13_s, extract_simm11_a32_13_s},
+
+    /* UIMM7_13_S mask = 0000000022220111 */
+#define UIMM7_13_S       (SIMM11_A32_13_S + 1)
+    {7, 0, 0, ARC_OPERAND_UNSIGNED, insert_uimm7_13_s, extract_uimm7_13_s},
+
+    /* UIMM6_A16_21 mask = 00000000000000000000011111000000 */
+#define UIMM6_A16_21       (UIMM7_13_S + 1)
+    {6, 0, 0, ARC_OPERAND_UNSIGNED | ARC_OPERAND_ALIGNED16 | ARC_OPERAND_TRUNCATE, insert_uimm6_a16_21, extract_uimm6_a16_21},
+
+    /* UIMM7_11_S mask = 0000022200011110 */
+#define UIMM7_11_S       (UIMM6_A16_21 + 1)
+    {7, 0, 0, ARC_OPERAND_UNSIGNED, insert_uimm7_11_s, extract_uimm7_11_s},
+
+    /* UIMM7_A16_20 mask = 00000000000000000000111111000000 */
+#define UIMM7_A16_20       (UIMM7_11_S + 1)
+    {7, 0, 0, ARC_OPERAND_UNSIGNED | ARC_OPERAND_ALIGNED16 | ARC_OPERAND_TRUNCATE, insert_uimm7_a16_20, extract_uimm7_a16_20},
+
+    /* SIMM13_A16_20 mask = 00000000000000000000111111222222 */
+#define SIMM13_A16_20       (UIMM7_A16_20 + 1)
+    {13, 0, 0, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED16 | ARC_OPERAND_TRUNCATE, insert_simm13_a16_20, extract_simm13_a16_20},
+
+    /* UIMM8_8_S mask = 0000000011111111 */
+#define UIMM8_8_S       (SIMM13_A16_20 + 1)
+    {8, 0, 0, ARC_OPERAND_UNSIGNED, insert_uimm8_8_s, extract_uimm8_8_s},
+
+    /* W6 mask = 00000000000000000000111111000000 */
+#define W6       (UIMM8_8_S + 1)
+    {6, 0, 0, ARC_OPERAND_SIGNED, insert_w6, extract_w6},
+
+    /* UIMM6_5_S mask = 0000011111100000 */
+#define UIMM6_5_S       (W6 + 1)
+    {6, 0, 0, ARC_OPERAND_UNSIGNED, insert_uimm6_5_s, extract_uimm6_5_s},
+
+#endif
   };
 const unsigned arc_num_operands = sizeof(arc_operands)/sizeof(*arc_operands);
 
@@ -1023,88 +2582,7 @@ const unsigned arc_fake_idx_Toperand = FKT;
 */
 const struct arc_opcode arc_opcodes[] =
   {
-#if 1
-/*ADD */
-/* add<.f>    a,b,c     	0010 0bbb 0000 0000 FBBB CCCC CCAA AAAA  */
-{ "add", 0x20000000, 0xF8FF0000, BASE, ARG_32BIT_RARBRC,     FLAGS_F },
-
-/* add<.f>    a,b,u6    	0010 0bbb 0100 0000 FBBB uuuu uuAA AAAA  */
-{ "add", 0x20400000, 0xF8FF0000, BASE, ARG_32BIT_RARBU6,     FLAGS_F },
-
-/* add<.f>    b,b,s12   	0010 0bbb 1000 0000 FBBB ssss ssSS SSSS  */
-{ "add", 0x20800000, 0xF8FF0000, BASE, ARG_32BIT_RBRBS12,    FLAGS_F },
-
-/* add<.f>    a,b,limm  	0010 0bbb 0000 0000 FBBB 1111 10AA AAAA  */
-{ "add", 0x20000F80, 0xF8FF0FC0, BASE, ARG_32BIT_RARBLIMM,   FLAGS_F },
-
-/* add<.f>    a,limm,c  	0010 0110 0000 0000 F111 CCCC CCAA AAAA  */
-{ "add", 0x26007000, 0xFFFF7000, BASE, ARG_32BIT_RALIMMRC,   FLAGS_F },
-
-/* add<.f>    a,limm,u6 	0010 0110 0100 0000 F111 uuuu uuAA AAAA  */
-{ "add", 0x26407000, 0xFFFF7000, BASE, ARG_32BIT_RALIMMU6,   FLAGS_F },
-
-/* add<.f>    a,limm,limm 	0010 0110 0000 0000 F111 1111 10AA AAAA  */
-{ "add", 0x26007F80, 0xFFFF7FC0, BASE, ARG_32BIT_RALIMMLIMM, FLAGS_F },
-
-/* add<.cc><.f>    b,b,c 	0010 0bbb 1100 0000 FBBB CCCC CC0Q QQQQ  */
-{ "add", 0x20C00000, 0xF8FF0020, BASE, ARG_32BIT_RBRBRC,     FLAGS_CCF },
-
-/* add<.cc><.f>    b,b,u6 	0010 0bbb 1100 0000 FBBB uuuu uu1Q QQQQ  */
-{ "add", 0x20C00020, 0xF8FF0020, BASE, ARG_32BIT_RBRBU6,     FLAGS_CCF },
-
-/* add<.cc><.f>    b,b,limm 	0010 0bbb 1100 0000 FBBB 1111 100Q QQQQ  */
-{ "add", 0x20C00F80, 0xF8FF0FE0, BASE, ARG_32BIT_RBRBLIMM,   FLAGS_CCF },
-
-/* add<.f>    0,b,c     	0010 0bbb 0000 0000 FBBB CCCC CC11 1110  */
-{ "add", 0x2000003E, 0xF8FF003F, BASE, ARG_32BIT_ZARBRC,     FLAGS_F },
-
-/* add<.f>    0,b,u6    	0010 0bbb 0100 0000 FBBB uuuu uu11 1110  */
-{ "add", 0x2040003E, 0xF8FF003F, BASE, ARG_32BIT_ZARBU6,     FLAGS_F },
-
-/* add<.f>    0,b,limm  	0010 0bbb 0000 0000 FBBB 1111 1011 1110  */
-{ "add", 0x20000FBE, 0xF8FF0FFF, BASE, ARG_32BIT_ZARBLIMM,   FLAGS_F },
-
-/* add<.f>    0,limm,c  	0010 0110 0000 0000 F111 CCCC CC11 1110  */
-{ "add", 0x2600703E, 0xFFFF703F, BASE, ARG_32BIT_ZALIMMRC,   FLAGS_F },
-
-/* add<.f>    0,limm,u6 	0010 0110 0100 0000 F111 uuuu uu11 1110  */
-{ "add", 0x2640703E, 0xFFFF703F, BASE, ARG_32BIT_ZALIMMU6,   FLAGS_F },
-
-/* add<.f>    0,limm,s12 	0010 0110 1000 0000 F111 ssss ssSS SSSS  */
-{ "add", 0x26807000, 0xFFFF7000, BASE, ARG_32BIT_ZALIMMS12,  FLAGS_F },
-
-/* add<.f>    0,limm,limm 	0010 0110 0000 0000 F111 1111 1011 1110  */
-{ "add", 0x26007FBE, 0xFFFF7FFF, BASE, ARG_32BIT_ZALIMMLIMM, FLAGS_F },
-
-/* add<.cc><.f>    0,limm,c 	0010 0110 1100 0000 F111 CCCC CC0Q QQQQ  */
-{ "add", 0x26C07000, 0xFFFF7020, BASE, ARG_32BIT_ZALIMMRC,   FLAGS_CCF },
-
-/* add<.cc><.f>    0,limm,u6 	0010 0110 1100 0000 F111 uuuu uu1Q QQQQ  */
-{ "add", 0x26C07020, 0xFFFF7020, BASE, ARG_32BIT_ZALIMMU6,   FLAGS_F },
-
-/* add<.cc><.f>    0,limm,limm 	0010 0110 1100 0000 F111 1111 100Q QQQQ  */
-{ "add", 0x26C07F80, 0xFFFF7FE0, BASE, ARG_32BIT_ZALIMMLIMM, FLAGS_CCF },
-
-
-{"add_s",       0x00006018, 0x0000F818, ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS | ARC_OPCODE_ARC700 | ARC_OPCODE_ARC600, { RA16, RB16, RC16 }, { 0 } },
-{"add_s",       0x00007000, 0x0000F81C, ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS, { RB16, RB16dup, R5H }, { 0 } },
-{"add_s",       0x00007004, 0x0000F81C, ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS, { R5H, R5Hdup, SIMM3S }, { 0 } },
-{"add_s",       0x000070C7, 0x0000F8FF, ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS, { ZA, LIMM, SIMM3S }, { 0 } },
-{"add_s",       0x0000C080, 0x0000F8E0, ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS | ARC_OPCODE_ARC700 | ARC_OPCODE_ARC600, { RB16, SP, UIMM7S32 }, { 0 } },
-{"add_s",       0x0000E000, 0x0000F880, ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS | ARC_OPCODE_ARC700 | ARC_OPCODE_ARC600, { RB16, RB16dup, UIMM7 }, { 0 } },
-{"add_s",       0x00006800, 0x0000F818, ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS | ARC_OPCODE_ARC700 | ARC_OPCODE_ARC600, { RC16, RB16, UIMM3S }, { 0 } },
-{"add_s",       0x0000C0A0, 0x0000FFE0, ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS | ARC_OPCODE_ARC700 | ARC_OPCODE_ARC600, { SP, SP, UIMM7S32 }, { 0 } },
-{"add_s",       0x0000CE00, 0x0000FE00, ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS | ARC_OPCODE_ARC700 | ARC_OPCODE_ARC600, { R0, GP, SIMM11S32 }, { 0 } },
-{"add_s",       0x00004808, 0x0000F888, (ARC_OPCODE_ARCv2EM) | ARC_OPCODE_ARCv2HS, { R0, RB16, UIMM6S }, { 0 } },
-{"add_s",       0x00004888, 0x0000F888, (ARC_OPCODE_ARCv2EM) | ARC_OPCODE_ARCv2HS, { R1, RB16, UIMM6S }, { 0 } },
-{"add_s",       0x000070C3, 0x0000F8FF, ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS, { RB16, RB16dup, LIMM }, { 0 } },
-
-    { "nop", 0x264A7000, 0xFFFFFFFF, BASE, ARG_NONE, FLAGS_NONE },
-    { "nop_s", 0x78E0, 0xFFFF, BASE, ARG_NONE, FLAGS_NONE },
-    { "bbit0", 0x8010006, 0xF8010017, BASE, { RB, RC, BBS9 }, { C_T, C_D } },
-#else
 #include "arc-opcodes.h"
-#endif
   };
 
 const unsigned arc_num_opcodes = sizeof(arc_opcodes)/sizeof(*arc_opcodes);
