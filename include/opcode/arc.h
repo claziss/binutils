@@ -271,4 +271,17 @@ struct arc_flag_special
 extern const struct arc_flag_special arc_flag_special_cases[];
 extern const unsigned arc_num_flag_special;
 
+/* Relocation equivalence structure. */
+struct arc_reloc_equiv_tab
+{
+  const char *name;	 /* String to lookup. */
+  const char *mnemonic;  /* Extra matching condition. */
+  unsigned flagcode;     /* Extra matching condition. */
+  signed int oldreloc;   /* old relocation */
+  signed int newreloc;   /* new relocation */
+};
+
+extern const struct arc_reloc_equiv_tab arc_reloc_equiv[];
+extern const unsigned arc_num_equiv_tab;
+
 #endif /* OPCODE_ARC_H */

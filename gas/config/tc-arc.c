@@ -220,13 +220,13 @@ static const struct arc_reloc_op_tag
 						   identifier@reloc +
 						   const  */
 }
-arc_reloc_op[] =
-{
-  DEF (gotoff, BFD_RELOC_ARC_GOTOFF,  1),
-  DEF (gotpc,  BFD_RELOC_ARC_GOTPC32, 0),
-  DEF (plt,    BFD_RELOC_ARC_PLT32,   0),
-  DEF (sda,    DUMMY_RELOC_ARC_SDA,   1),
-};
+  arc_reloc_op[] =
+    {
+      DEF (gotoff, BFD_RELOC_ARC_GOTOFF,  1),
+      DEF (gotpc,  BFD_RELOC_ARC_GOTPC32, 0),
+      DEF (plt,    BFD_RELOC_ARC_PLT32,   0),
+      DEF (sda,    DUMMY_RELOC_ARC_SDA,   1),
+    };
 
 static const int arc_num_reloc_op
   = sizeof (arc_reloc_op) / sizeof (*arc_reloc_op);
@@ -1581,6 +1581,55 @@ find_opcode_match (const struct arc_opcode *first_opcode,
   return NULL;
 }
 
+/* Find the proper relocation for the given opcode. */
+static extended_bfd_reloc_code_real_type
+find_reloc (const char *name,
+	    const char *opcodename,
+	    const struct arc_flags *pflags,
+	    int nflg,
+	    extended_bfd_reloc_code_real_type reloc)
+{
+  int i, j;
+  bfd_boolean found_flag;
+  extended_bfd_reloc_code_real_type ret = BFD_RELOC_UNUSED;
+
+  for (i = 0; i < arc_num_equiv_tab; i++)
+    {
+      struct arc_reloc_equiv_tab *r = &arc_reloc_equiv[i];
+
+      /* Find the entry */
+      if (strcmp (name, r->name))
+	continue;
+      if (r->mnemonic && (strcmp (r->mnemonic, opcodename)))
+	continue;
+      if (r->flagcode)
+	{
+	  if (!nflg)
+	    continue;
+	  found_flag = FALSE;
+	  for (j = 0; j < nflg; j++)
+	    if (pflags[i].code == r->flagcode)
+	      {
+		found_flag = TRUE;
+		break;
+	      }
+	  if (!found_flag)
+	    continue;
+	}
+
+      if (reloc != r->oldreloc)
+	continue;
+      /* Found it */
+      ret = r->newreloc;
+      break;
+    }
+
+  if (ret == BFD_RELOC_UNUSED)
+    as_bad (_("Unable to find %s relocation for instruction %s"),
+	    name, opcodename);
+  return ret;
+}
+
 /* Turn an opcode description and a set of arguments into
    an instruction and a fixup.  */
 static void
@@ -1663,8 +1712,12 @@ assemble_insn (const struct arc_opcode *opcode,
 		  reloc = ARC_RELOC_TABLE(t->X_md)->reloc;
 		  break;
 		case O_sda:
-		  /* Just consider the default relocation. */
+		  reloc = find_reloc ("sda", opcode->name,
+				      pflags, nflg,
+				      operand->default_reloc);
+		  break;
 		default:
+		  /* Just consider the default relocation. */
 		  reloc = operand->default_reloc;
 		  break;
 		}
@@ -1703,12 +1756,14 @@ assemble_insn (const struct arc_opcode *opcode,
   /* Handle flags. */
   for (i = 0; i < nflg; i++)
     {
-      const struct arc_flag_operand *flg_operand = &arc_flag_operands[pflags[i].code];
+      const struct arc_flag_operand *flg_operand =
+	&arc_flag_operands[pflags[i].code];
 
       /* There is an exceptional case when we cannot insert a flag
 	 just as it is. The .T flag must be handled in relation with
 	 the relative address . */
-      if (!strcmp (flg_operand->name, "t") || !strcmp (flg_operand->name, "nt"))
+      if (!strcmp (flg_operand->name, "t")
+	  || !strcmp (flg_operand->name, "nt"))
 	{
 	  unsigned bitYoperand = 0;
 	  /* FIXME! move selection bbit/brcc in arc-opc.c */

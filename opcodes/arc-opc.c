@@ -1938,12 +1938,12 @@ extract_uimm6_5_s (unsigned insn ATTRIBUTE_UNUSED,
 
 #ifndef INSERT_W6
 #define INSERT_W6
-/* mask = 00000000000000000000111111000000 
+/* mask = 00000000000000000000111111000000
    insn = 00011bbb000000000BBBwwwwwwDaaZZ1 */
 static unsigned
 insert_w6 (unsigned insn ATTRIBUTE_UNUSED,
-  	int value ATTRIBUTE_UNUSED,
-  	const char **errmsg ATTRIBUTE_UNUSED)
+	int value ATTRIBUTE_UNUSED,
+	const char **errmsg ATTRIBUTE_UNUSED)
 {
   insn |= ((value >> 0) & 0x003f) << 6;
 
@@ -1956,7 +1956,7 @@ insert_w6 (unsigned insn ATTRIBUTE_UNUSED,
 /* mask = 00000000000000000000111111000000 */
 static int
 extract_w6 (unsigned insn ATTRIBUTE_UNUSED,
-  	int *invalid ATTRIBUTE_UNUSED)
+	int *invalid ATTRIBUTE_UNUSED)
 {
   unsigned value = 0;
 
@@ -1968,12 +1968,12 @@ extract_w6 (unsigned insn ATTRIBUTE_UNUSED,
 
 #ifndef INSERT_G_S
 #define INSERT_G_S
-/* mask = 0000011100022000 
+/* mask = 0000011100022000
    insn = 01000ggghhhGG0HH */
 static unsigned
 insert_g_s (unsigned insn ATTRIBUTE_UNUSED,
-  	int value ATTRIBUTE_UNUSED,
-  	const char **errmsg ATTRIBUTE_UNUSED)
+	int value ATTRIBUTE_UNUSED,
+	const char **errmsg ATTRIBUTE_UNUSED)
 {
   insn |= ((value >> 0) & 0x0007) << 8;
   insn |= ((value >> 3) & 0x0003) << 3;
@@ -1987,7 +1987,7 @@ insert_g_s (unsigned insn ATTRIBUTE_UNUSED,
 /* mask = 0000011100022000 */
 static int
 extract_g_s (unsigned insn ATTRIBUTE_UNUSED,
-  	int *invalid ATTRIBUTE_UNUSED)
+	int *invalid ATTRIBUTE_UNUSED)
 {
   int value = 0;
 
@@ -2449,7 +2449,7 @@ const struct arc_operand arc_operands[] =
 
     /* SIMM11_A32_7_S mask = 0000000111111111 */
 #define SIMM11_A32_7_S       (UIMM3_13_S + 1)
-    {11, 0, 0, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED32 | ARC_OPERAND_TRUNCATE, insert_simm11_a32_7_s, extract_simm11_a32_7_s},
+    {11, 0, BFD_RELOC_ARC_SDA16_LD2, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED32 | ARC_OPERAND_TRUNCATE, insert_simm11_a32_7_s, extract_simm11_a32_7_s},
 
     /* UIMM6_13_S mask = 0000000002220111 */
 #define UIMM6_13_S       (SIMM11_A32_7_S + 1)
@@ -2476,7 +2476,7 @@ const struct arc_operand arc_operands[] =
 
     /* SIMM10_A16_7_S mask = 0000000111111111 */
 #define SIMM10_A16_7_S       (SIMM25_A16_5 + 1)
-    {10, 0, 0, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED16 | ARC_OPERAND_TRUNCATE, insert_simm10_a16_7_s, extract_simm10_a16_7_s},
+    {10, 0, -SIMM10_A16_7_S, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED16 | ARC_OPERAND_TRUNCATE, insert_simm10_a16_7_s, extract_simm10_a16_7_s},
 
     /* SIMM7_A16_10_S mask = 0000000000111111 */
 #define SIMM7_A16_10_S       (SIMM10_A16_7_S + 1)
@@ -2512,7 +2512,7 @@ const struct arc_operand arc_operands[] =
 
     /* SIMM9_8 mask = 00000000111111112000000000000000 */
 #define SIMM9_8       (UIMM6_11_S + 1)
-    {9, 0, 0, ARC_OPERAND_SIGNED | ARC_OPERAND_IGNORE, insert_simm9_8, extract_simm9_8},
+    {9, 0, BFD_RELOC_ARC_SDA_LDST, ARC_OPERAND_SIGNED | ARC_OPERAND_IGNORE, insert_simm9_8, extract_simm9_8},
 
     /* UIMM10_A32_8_S mask = 0000000011111111 */
 #define UIMM10_A32_8_S       (SIMM9_8 + 1)
@@ -2520,7 +2520,7 @@ const struct arc_operand arc_operands[] =
 
     /* SIMM9_7_S mask = 0000000111111111 */
 #define SIMM9_7_S       (UIMM10_A32_8_S + 1)
-    {9, 0, 0, ARC_OPERAND_SIGNED, insert_simm9_7_s, extract_simm9_7_s},
+    {9, 0, BFD_RELOC_ARC_SDA16_LD, ARC_OPERAND_SIGNED, insert_simm9_7_s, extract_simm9_7_s},
 
     /* UIMM6_A16_11_S mask = 0000000000011111 */
 #define UIMM6_A16_11_S       (SIMM9_7_S + 1)
@@ -2617,4 +2617,30 @@ const struct arc_flag_special arc_flag_special_cases[] =
     { "set", { F_ALWAYS, F_RA, F_EQUAL, F_ZERO, F_NOTEQUAL, F_NOTZERO, F_POZITIVE, F_PL, F_NEGATIVE, F_MINUS, F_CARRY, F_CARRYSET, F_LOWER, F_CARRYCLR, F_NOTCARRY, F_HIGHER, F_OVERFLOWSET, F_OVERFLOW, F_NOTOVERFLOW, F_OVERFLOWCLR, F_GT, F_GE, F_LT, F_LE, F_HI, F_LS, F_PNZ, F_NULL } },
   };
 
-const unsigned arc_num_flag_special = sizeof(arc_flag_special_cases)/sizeof(*arc_flag_special_cases);
+const unsigned arc_num_flag_special = sizeof (arc_flag_special_cases) / sizeof (*arc_flag_special_cases);
+
+/* Relocations */
+#undef DEF
+#define DEF(NAME, EXC1, EXC2, RELOC1, RELOC2)	\
+  { #NAME, EXC1, EXC2, RELOC1, RELOC2}
+
+const struct arc_reloc_equiv_tab arc_reloc_equiv[] =
+  {
+    /*FIXME! missing relocation for ld_s r1,[GP, s11] */
+    DEF (sda, 0, F_NULL, BFD_RELOC_ARC_SDA16_LD, BFD_RELOC_ARC_SDA16_LD),
+    DEF (sda, 0, F_NULL, -SIMM10_A16_7_S, BFD_RELOC_ARC_SDA16_LD1),
+    DEF (sda, 0, F_NULL, BFD_RELOC_ARC_SDA16_LD2, BFD_RELOC_ARC_SDA16_LD2),
+    DEF (sda, 0, F_NULL, BFD_RELOC_ARC_32_ME, BFD_RELOC_ARC_SDA32_ME),
+
+    DEF (sda, "ld", F_ASFAKE, BFD_RELOC_ARC_SDA_LDST, BFD_RELOC_ARC_SDA_LDST2),
+    DEF (sda, "st", F_ASFAKE, BFD_RELOC_ARC_SDA_LDST, BFD_RELOC_ARC_SDA_LDST2),
+
+    DEF (sda, 0, F_NULL, BFD_RELOC_ARC_SDA_LDST, BFD_RELOC_ARC_SDA_LDST),
+
+    DEF (sda, "ldw", F_ASFAKE, BFD_RELOC_ARC_SDA_LDST, BFD_RELOC_ARC_SDA_LDST1),
+    DEF (sda, "ldh", F_ASFAKE, BFD_RELOC_ARC_SDA_LDST, BFD_RELOC_ARC_SDA_LDST1),
+    DEF (sda, "stw", F_ASFAKE, BFD_RELOC_ARC_SDA_LDST, BFD_RELOC_ARC_SDA_LDST1),
+    DEF (sda, "sth", F_ASFAKE, BFD_RELOC_ARC_SDA_LDST, BFD_RELOC_ARC_SDA_LDST1),
+  };
+
+const unsigned arc_num_equiv_tab = sizeof (arc_reloc_equiv) / sizeof (*arc_reloc_equiv);
