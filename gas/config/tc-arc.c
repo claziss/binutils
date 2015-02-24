@@ -186,9 +186,6 @@ struct arc_flags
   unsigned char code;
 };
 
-/* A table of the register symbols.  */
-static symbolS *arc_register_table[64];
-
 /* Used by the arc_reloc_op table. Order is important. */
 #define O_gotoff  O_md1     /* @gotoff relocation. */
 #define O_gotpc   O_md2     /* @gotpc relocation. */
@@ -728,6 +725,17 @@ md_assemble (char *str)
   assemble_tokens (opname, tok, ntok, flags, nflg);
 }
 
+/* Callback to insert a register into the symbol table. */
+
+static void
+asm_record_register (char *name, int number)
+{
+  /* Use symbol_create here instead of symbol_new so we don't try to
+     output registers into the object file's symbol table.  */
+  symbol_table_insert (symbol_create (name, reg_section,
+				      number, &zero_address_frag));
+}
+
 /* Port-specific assembler initialization. This function is called
    once, at assembler startup time.  */
 void
@@ -772,11 +780,16 @@ md_begin (void)
       char name[4];
 
       sprintf (name, "r%d", i);
-      arc_register_table[i] = symbol_create (name, reg_section, i,
-					     &zero_address_frag);
+      asm_record_register (name, i);
     }
-
-  /* TBD */
+  asm_record_register ("gp", 26);
+  asm_record_register ("fp", 27);
+  asm_record_register ("sp", 28);
+  asm_record_register ("ilink", 29);
+  asm_record_register ("ilink1", 29);
+  asm_record_register ("ilink2", 30);
+  asm_record_register ("blink", 31);
+  asm_record_register ("pcl", 63);
 }
 
 /* Write a value out to the object file, using the appropriate
@@ -1094,28 +1107,6 @@ md_convert_frag (bfd *abfd ATTRIBUTE_UNUSED,
 symbolS *
 md_undefined_symbol (char *name)
 {
-  int num;
-
-  if (*name != 'r')
-    return NULL;
-
-  switch (*++name)
-    {
-    case '0': case '1': case '2': case '3': case '4':
-    case '5': case '6': case '7': case '8': case '9':
-      if (name[1] == '\0')
-	num = name[0] - '0';
-      else if (name[0] != '0' && ISDIGIT (name[1]) && name[2] == '\0')
-	{
-	  num = (name[0] - '0') * 10 + name[1] - '0';
-	  if (num >= 32)
-	    break;
-	}
-      else
-	break;
-
-      return arc_register_table[num];
-    }
   return NULL;
 }
 
@@ -1287,8 +1278,9 @@ assemble_tokens (const char *opname,
 
   if (opcode)
     {
-      pr_debug ("%s:%d: assemble_tokens: trying opcode 0x%8X\n",
-		frag_now->fr_file, frag_now->fr_line, opcode->opcode);
+      pr_debug ("%s:%d: assemble_tokens: %s trying opcode 0x%08X\n",
+		frag_now->fr_file, frag_now->fr_line, opcode->name,
+		opcode->opcode);
 
       found_something = 1;
       opcode = find_opcode_match (opcode, tok, &ntok, pflags, nflgs, &cpumatch);
@@ -1386,7 +1378,7 @@ find_opcode_match (const struct arc_opcode *first_opcode,
       const expressionS *t;
       bfd_boolean fl_ignore = FALSE;
 
-      pr_debug ("%s:%d: find_opcode_match: trying opcode 0x%8X\n",
+      pr_debug ("%s:%d: find_opcode_match: trying opcode 0x%08X\n",
 		frag_now->fr_file, frag_now->fr_line, opcode->opcode);
 
       /* Don't match opcodes that don't exist on this architecture.  */
@@ -1421,7 +1413,7 @@ find_opcode_match (const struct arc_opcode *first_opcode,
 		  tok[tokidx].X_add_number = 0;
 		  goto tryagain;
 		}
-	      abort ();
+	      goto match_failed;
 	    }
 
 	  /* Match operand type with expression type.  */
@@ -1611,8 +1603,8 @@ assemble_insn (const struct arc_opcode *opcode,
   memset (insn, 0, sizeof (*insn));
   image = opcode->opcode;
 
-  pr_debug ("%s:%d: assemble_insn: using opcode %x\n",
-	    frag_now->fr_file, frag_now->fr_line, opcode->opcode);
+  pr_debug ("%s:%d: assemble_insn: %s using opcode %x\n",
+	    frag_now->fr_file, frag_now->fr_line, opcode->name, opcode->opcode);
 
   /* Handle operands. */
   for (argidx = opcode->operands; *argidx; ++argidx)
@@ -1678,7 +1670,7 @@ assemble_insn (const struct arc_opcode *opcode,
 		}
 	    }
 
-	  gas_assert (reloc_operand == NULL);
+	  //gas_assert (reloc_operand == NULL);
 	  reloc_operand = operand;
 	  reloc_exp = t;
 
@@ -1718,18 +1710,27 @@ assemble_insn (const struct arc_opcode *opcode,
 	 the relative address . */
       if (!strcmp (flg_operand->name, "t") || !strcmp (flg_operand->name, "nt"))
 	{
+	  unsigned bitYoperand = 0;
+	  /* FIXME! move selection bbit/brcc in arc-opc.c */
+	  if (!strcmp (flg_operand->name, "t"))
+	    if (!strcmp (opcode->name, "bbit0")
+		|| !strcmp (opcode->name, "bbit1"))
+	      bitYoperand = arc_NToperand;
+	    else
+	      bitYoperand = arc_Toperand;
+	  else
+	    if (!strcmp (opcode->name, "bbit0")
+		|| !strcmp (opcode->name, "bbit1"))
+	      bitYoperand = arc_Toperand;
+	    else
+	      bitYoperand = arc_NToperand;
+
 	  /* Check if we have a symbol or an solved immediate */
 	  gas_assert (reloc_exp != NULL);
 	  if (reloc_exp->X_op == O_constant)
 	    {
 	      offsetT val = reloc_exp->X_add_number;
-
-	      if (!strcmp (opcode->name, "bbit0") || !strcmp (opcode->name, "bbit1"))
-		val = flg_operand->code ? -val : val;
-	      else
-		val = flg_operand->code ? val : -val; /* BRcc case */
-
-	      image |= insert_operand (image, &arc_operands[arc_fake_idx_Toperand],
+	      image |= insert_operand (image, &arc_operands[bitYoperand],
 				       val, NULL, 0);
 	    }
 	  else
@@ -1741,7 +1742,7 @@ assemble_insn (const struct arc_opcode *opcode,
 
 	      fixup = &insn->fixups[insn->nfixups++];
 	      fixup->exp = *reloc_exp;
-	      fixup->reloc = -arc_fake_idx_Toperand; /*FIXME! the bbit/br case discriminator */
+	      fixup->reloc = -bitYoperand;
 	      fixup->pcrel = pcrel;
 	    }
 	}

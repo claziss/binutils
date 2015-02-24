@@ -168,7 +168,8 @@ struct arc_operand
    the operands field of the arc_opcodes table.  */
 extern const struct arc_operand arc_operands[];
 extern const unsigned arc_num_operands;
-extern const unsigned arc_fake_idx_Toperand;
+extern const unsigned arc_Toperand;
+extern const unsigned arc_NToperand;
 
 /* Values defined for the flags field of a struct arc_operand.  */
 

@@ -101,7 +101,7 @@ extract_bbs9 (unsigned insn,
   return value << 1;
 }
 
-/* Insert Y-bit in bbit instructions. This function is called only
+/* Insert Y-bit in bbit/br instructions. This function is called only
    when solving fixups. */
 static unsigned
 insert_Ybit (unsigned insn,
@@ -111,6 +111,21 @@ insert_Ybit (unsigned insn,
   if (!value)
     *errmsg = _("cannot resolve this fixup.");
   else if (value > 0)
+    insn |= 0x08;
+
+  return insn;
+}
+
+/* Insert Y-bit in bbit/br instructions. This function is called only
+   when solving fixups. */
+static unsigned
+insert_NYbit (unsigned insn,
+	     int value,
+	     const char **errmsg)
+{
+  if (!value)
+    *errmsg = _("cannot resolve this fixup.");
+  else if (value < 0)
     insn |= 0x08;
 
   return insn;
@@ -2312,8 +2327,11 @@ const struct arc_operand arc_operands[] =
     { 0, 0, 0, ARC_OPERAND_UNSIGNED, insert_za, 0 },
 
     /* Fake operand to handle the T flag. */
-#define FKT             (ZA + 1)
+#define FKT_T           (ZA + 1)
     { 1, 3, 0, ARC_OPERAND_FAKE, insert_Ybit, 0 },
+    /* Fake operand to handle the T flag. */
+#define FKT_NT          (FKT_T + 1)
+    { 1, 3, 0, ARC_OPERAND_FAKE, insert_NYbit, 0 },
 
 #if 0
     /* The signed "9-bit" immediate used for bbit instructions. */
@@ -2406,7 +2424,7 @@ const struct arc_operand arc_operands[] =
 #else /**************** New operands *****************/
 
     /* UIMM6_20 mask = 00000000000000000000111111000000 */
-#define UIMM6_20       (FKT + 1)
+#define UIMM6_20       (FKT_NT + 1)
     {6, 0, 0, ARC_OPERAND_UNSIGNED, insert_uimm6_20, extract_uimm6_20},
 
     /* SIMM12_20 mask = 00000000000000000000111111222222 */
@@ -2552,7 +2570,8 @@ const struct arc_operand arc_operands[] =
   };
 const unsigned arc_num_operands = sizeof(arc_operands)/sizeof(*arc_operands);
 
-const unsigned arc_fake_idx_Toperand = FKT;
+const unsigned arc_Toperand = FKT_T;
+const unsigned arc_NToperand = FKT_NT;
 
 /* Common combinations of arguments.  */
 #define ARG_NONE                { 0 }
