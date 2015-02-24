@@ -44,12 +44,14 @@
 
 static const bfd_arch_info_type arch_info_struct[] =
 {
-  ARC ( bfd_mach_arc_arc700, "A7",     FALSE, &arch_info_struct[1] ),
-  ARC ( bfd_mach_arc_arcv2,  "EM",     FALSE, NULL),
+  ARC ( bfd_mach_arc_arc700, "A7",     FALSE, &arch_info_struct[1]),
+  ARC ( bfd_mach_arc_arcv2,  "ARCv2",  FALSE, &arch_info_struct[2]),
+  ARC ( bfd_mach_arc_arcv2,  "EM",     FALSE, &arch_info_struct[3]),
+  ARC ( bfd_mach_arc_arcv2,  "HS",     FALSE, NULL),
 };
 
 const bfd_arch_info_type bfd_arc_arch =
-  ARC ( bfd_mach_arc_arcv2, "EM", TRUE,  &arch_info_struct[0] );
+  ARC ( bfd_mach_arc_arcv2, "HS", TRUE,  &arch_info_struct[0] );
 
 /* Utility routines.  */
 

@@ -83,8 +83,11 @@ extern int target_big_endian;
 const char *arc_target_format = DEFAULT_TARGET_FORMAT;
 static int byte_order = DEFAULT_BYTE_ORDER;
 
+extern int arc_get_mach (char *);
+
 /* Forward declaration */
 static void arc_common (int);
+static void arc_option (int);
 
 const pseudo_typeS md_pseudo_table[] =
   {
@@ -96,6 +99,7 @@ const pseudo_typeS md_pseudo_table[] =
     { "common",  arc_common, 0 },
     { "lcomm",   arc_common, 1 },
     { "lcommon", arc_common, 1 },
+    { "cpu",     arc_option, 0 },
 
     { NULL, NULL, 0 }
   };
@@ -157,6 +161,9 @@ static const char *arc_target_name = "<all>";
 /* The default architecture. */
 static int arc_mach_type = bfd_mach_arc_arcv2;
 
+/* Non-zero if the cpu type has been explicitly specified.  */
+static int mach_type_specified_p = 0;
+
 /* The hash table of instruction opcodes.  */
 static struct hash_control *arc_opcode_hash;
 
@@ -166,14 +173,15 @@ static const struct cpu_type
   const char *name;
   unsigned flags;
   int mach;
+  unsigned eflags;
 }
 cpu_types[] =
 {
-  { "arc600", ARC_OPCODE_ARC600, bfd_mach_arc_arc700 }, /* FIXME! update bfd-in2.h */
-  { "arc700", ARC_OPCODE_ARC700, bfd_mach_arc_arc700 },
-  { "arcem", ARC_OPCODE_ARCv2EM, bfd_mach_arc_arcv2 },
-  { "archs", ARC_OPCODE_ARCv2HS, bfd_mach_arc_arcv2 },
-  { "all", ARC_OPCODE_BASE, bfd_mach_arc_arcv2 },
+  { "arc600", ARC_OPCODE_ARC600, bfd_mach_arc_arc700, E_ARC_MACH_ARC700 }, /* FIXME! update bfd-in2.h */
+  { "arc700", ARC_OPCODE_ARC700, bfd_mach_arc_arc700, E_ARC_MACH_ARC700 },
+  { "arcem",  ARC_OPCODE_ARCv2EM, bfd_mach_arc_arcv2, E_ARC_MACH_ARCV2 },
+  { "archs",  ARC_OPCODE_ARCv2HS, bfd_mach_arc_arcv2, E_ARC_MACH_ARCV2 },
+  { "all",    ARC_OPCODE_BASE, bfd_mach_arc_arcv2, 0x00 },
   { 0, 0, 0 }
 };
 
@@ -393,6 +401,43 @@ arc_common (int localScope)
   demand_empty_rest_of_line ();
 }
 
+/* Select the cpu we're assembling for.  */
+
+static void
+arc_option (int ignore ATTRIBUTE_UNUSED)
+{
+  int mach = -1, i;
+  char c;
+  char *cpu;
+
+  cpu = input_line_pointer;
+  c = get_symbol_end ();
+  mach = arc_get_mach (cpu);
+  *input_line_pointer = c;
+
+  if (mach == -1)
+    goto bad_cpu;
+
+  if (!mach_type_specified_p)
+    {
+      arc_mach_type = mach;
+      if (!bfd_set_arch_mach (stdoutput, bfd_arch_arc, mach))
+	as_fatal ("could not set architecture and machine");
+
+      mach_type_specified_p = 1;
+    }
+  else
+    if (arc_mach_type != mach)
+      as_warn ("Command-line value overrides \".cpu\" directive");
+
+  demand_empty_rest_of_line ();
+
+  return;
+
+ bad_cpu:
+  as_bad ("invalid identifier for \".cpu\"");
+  ignore_rest_of_line ();
+}
 
 /* Smartly print an expression. */
 static void
@@ -1217,6 +1262,7 @@ md_parse_option (int c, char *arg ATTRIBUTE_UNUSED)
 		arc_target = cpu_types[i].flags;
 		arc_target_name = cpu_types[i].name;
 		arc_mach_type = cpu_types[i].mach;
+		mach_type_specified_p = 1;
 		break;
 	      }
 	  }
