@@ -209,6 +209,13 @@ extern const unsigned arc_fake_idx_Toperand;
 /* This operand is 32bit aligned. */
 #define ARC_OPERAND_ALIGNED32   0x0200
 
+/* This operand can be ignored by matching process if it is not
+   present */
+#define ARC_OPERAND_IGNORE      0x0400
+
+/* Don't check the range when matching */
+#define ARC_OPERAND_NCHK      0x0800
+
 /* Mask for selecting the type for typecheck purposes */
 #define ARC_OPERAND_TYPECHECK_MASK		\
   (ARC_OPERAND_IR |				\

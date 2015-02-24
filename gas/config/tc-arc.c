@@ -61,7 +61,7 @@
 /**************************************************************************/
 
 /* Characters which always start a comment.  */
-const char comment_chars[] = "#";
+const char comment_chars[] = "#;";
 
 /* Characters which start a comment at the beginning of a line.  */
 const char line_comment_chars[] = "#";
@@ -244,7 +244,7 @@ static flagword arc_eflag = 0x00;
 static void assemble_tokens (const char *, const expressionS *, int,
 			     struct arc_flags *, int);
 static const struct arc_opcode *find_opcode_match (const struct arc_opcode *,
-						   const expressionS *, int *,
+						   expressionS *, int *,
 						   struct arc_flags *, int, int *);
 static void assemble_insn (const struct arc_opcode *, const expressionS *,
 			   int, const struct arc_flags *, int,
@@ -944,7 +944,7 @@ md_apply_fix (fixS *fixP, valueT *valP, segT seg)
 
   if (fixP->fx_done)
     {
-      value += fx_offset;
+      //value += fx_offset;
 
       /* For hosts with longs bigger than 32-bits make sure that the top
          bits of a 32-bit negative value read in by the parser are set,
@@ -1368,7 +1368,7 @@ find_special_case (const char *opname,
    syntax match.  */
 static const struct arc_opcode *
 find_opcode_match (const struct arc_opcode *first_opcode,
-		   const expressionS *tok,
+		   expressionS *tok,
 		   int *pntok,
 		   struct arc_flags *first_pflag,
 		   int nflgs,
@@ -1384,6 +1384,7 @@ find_opcode_match (const struct arc_opcode *first_opcode,
       const unsigned char *flgidx;
       int tokidx = 0;
       const expressionS *t;
+      bfd_boolean fl_ignore = FALSE;
 
       pr_debug ("%s:%d: find_opcode_match: trying opcode 0x%8X\n",
 		frag_now->fr_file, frag_now->fr_line, opcode->opcode);
@@ -1403,9 +1404,23 @@ find_opcode_match (const struct arc_opcode *first_opcode,
 	  if (operand->flags & ARC_OPERAND_FAKE)
 	    continue;
 
+	  /* Search for potential ignored operands */
+	  if (operand->flags & ARC_OPERAND_IGNORE)
+	    fl_ignore = TRUE;
+
+	tryagain:
 	  /* When we expect input, make sure we have it.  */
 	  if (tokidx >= ntok)
 	    {
+	      if (fl_ignore)
+		{
+		  ++ntok;
+		  fl_ignore = FALSE;
+		  /* Make a fake argument */
+		  tok[tokidx].X_op =  O_constant;
+		  tok[tokidx].X_add_number = 0;
+		  goto tryagain;
+		}
 	      abort ();
 	    }
 
@@ -1454,7 +1469,8 @@ find_opcode_match (const struct arc_opcode *first_opcode,
 
 		case O_constant:
 		  /* Check the range. */
-		  if (operand->bits != 32)
+		  if (operand->bits != 32
+		      && !(operand->flags & ARC_OPERAND_NCHK))
 		    {
 		      offsetT min, max, val;
 		      val = tok[tokidx].X_add_number;
@@ -1480,6 +1496,20 @@ find_opcode_match (const struct arc_opcode *first_opcode,
 
 		      if ((operand->flags & ARC_OPERAND_ALIGNED16)
 			  && (val & 0x01))
+			goto match_failed;
+		    }
+		  else if (operand->flags & ARC_OPERAND_NCHK)
+		    {
+		      if (operand->insert)
+			{
+			  const char *errmsg = NULL;
+			  (*operand->insert)(0,
+					     tok[tokidx].X_add_number,
+					     &errmsg);
+			  if (errmsg)
+			    goto match_failed;
+			}
+		      else
 			goto match_failed;
 		    }
 		  break;
@@ -1817,7 +1847,9 @@ insert_operand (unsigned insn,
 {
   offsetT min = 0, max = 0;
 
-  if (operand->bits != 32 && !(operand->flags & ARC_OPERAND_FAKE))
+  if (operand->bits != 32
+      && !(operand->flags & ARC_OPERAND_NCHK)
+      && !(operand->flags & ARC_OPERAND_FAKE))
     {
       /*FIXME*/
       if (operand->flags & ARC_OPERAND_SIGNED)
