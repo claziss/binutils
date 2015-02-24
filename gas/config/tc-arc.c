@@ -61,7 +61,7 @@
 /**************************************************************************/
 
 /* Characters which always start a comment.  */
-const char comment_chars[] = "#";
+const char comment_chars[] = "#;";
 
 /* Characters which start a comment at the beginning of a line.  */
 const char line_comment_chars[] = "#";
@@ -944,7 +944,7 @@ md_apply_fix (fixS *fixP, valueT *valP, segT seg)
 
   if (fixP->fx_done)
     {
-      value += fx_offset;
+      //value += fx_offset;
 
       /* For hosts with longs bigger than 32-bits make sure that the top
          bits of a 32-bit negative value read in by the parser are set,
