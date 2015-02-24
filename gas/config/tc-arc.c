@@ -1707,6 +1707,9 @@ assemble_insn (const struct arc_opcode *opcode,
       const struct arc_operand *operand = &arc_operands[*argidx];
       const expressionS *t = (const expressionS *) 0;
 
+      if (operand->flags & ARC_OPERAND_FAKE)
+	continue;
+      
       if (operand->flags & ARC_OPERAND_DUPLICATE)
 	{
 	  /* Duplicate operand, already inserted. */

@@ -2327,7 +2327,11 @@ const struct arc_operand arc_operands[] =
     { 0, 0, 0, ARC_OPERAND_UNSIGNED, insert_za, 0 },
 
     /* Fake operand to handle the T flag. */
-#define FKT_T           (ZA + 1)
+#define BRAKET          (ZA + 1)
+    { 0, 0, 0, ARC_OPERAND_FAKE | ARC_OPERAND_BRAKET, 0, 0 },
+
+    /* Fake operand to handle the T flag. */
+#define FKT_T           (BRAKET + 1)
     { 1, 3, 0, ARC_OPERAND_FAKE, insert_Ybit, 0 },
     /* Fake operand to handle the T flag. */
 #define FKT_NT          (FKT_T + 1)

@@ -258,13 +258,21 @@ print_insn_arc (bfd_vma memaddr,
 
   /* Now extract and print the operands. */
   int need_comma = 0;
+  int open_braket = 0;
   for (opidx = opcode->operands; *opidx; opidx++)
     {
       const struct arc_operand *operand = &arc_operands[*opidx];
       int value;
 
+      if (open_braket && (operand->flags & ARC_OPERAND_BRAKET))
+	{
+	  (*info->fprintf_func) (info->stream, "]");
+	  open_braket = 0;
+	  continue;
+	}
+
       /* Only take input from real operands.  */
-      if (operand->flags & ARC_OPERAND_FAKE)
+      if ((operand->flags & ARC_OPERAND_FAKE) && !(operand->flags & ARC_OPERAND_BRAKET))
 	continue;
 
       if (operand->extract)
@@ -289,8 +297,16 @@ print_insn_arc (bfd_vma memaddr,
 
       if (need_comma)
 	(*info->fprintf_func) (info->stream, ",");
+      
+      if (!open_braket && (operand->flags & ARC_OPERAND_BRAKET))
+	{
+	  (*info->fprintf_func) (info->stream, "[");
+	  open_braket = 1;
+	  need_comma = 0;
+	  continue;
+	}
 
-      /* Print the operand as directed by the flags.  */
+    /* Print the operand as directed by the flags.  */
       if (operand->flags & ARC_OPERAND_IR)
 	(*info->fprintf_func) (info->stream, "%s", regnames[value]);
       else if (operand->flags & ARC_OPERAND_LIMM)
@@ -303,7 +319,7 @@ print_insn_arc (bfd_vma memaddr,
 	(*info->fprintf_func) (info->stream, "%#x", value);
 
       need_comma = 1;
-
+      
       /* adjust insn len*/
       if (operand->flags & ARC_OPERAND_LIMM
 	  && !(operand->flags & ARC_OPERAND_DUPLICATE))

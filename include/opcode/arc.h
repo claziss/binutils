@@ -47,7 +47,7 @@ struct arc_opcode
   /* An array of operand codes.  Each code is an index into the
      operand table.  They appear in the order which the operands must
      appear in assembly code, and are terminated by a zero.  */
-  unsigned char operands[4];
+  unsigned char operands[6];
 
   /* An array of flag codes.  Each code is an index into the flag
      table.  They appear in the order which the flags must appear in
@@ -215,7 +215,10 @@ extern const unsigned arc_NToperand;
 #define ARC_OPERAND_IGNORE      0x0400
 
 /* Don't check the range when matching */
-#define ARC_OPERAND_NCHK      0x0800
+#define ARC_OPERAND_NCHK        0x0800
+
+/* Mark the braket possition */
+#define ARC_OPERAND_BRAKET      0x1000
 
 /* Mask for selecting the type for typecheck purposes */
 #define ARC_OPERAND_TYPECHECK_MASK		\
