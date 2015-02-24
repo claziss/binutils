@@ -1733,9 +1733,13 @@ assemble_insn (const struct arc_opcode *opcode,
 	      reloc_howto_type *reloc_howto
 		= bfd_reloc_type_lookup (stdoutput,
 					 (bfd_reloc_code_real_type) reloc);
-	      if (reloc_howto->bitsize != operand->bits)
+	      unsigned reloc_bitsize = reloc_howto->bitsize;
+	      if (reloc_howto->rightshift)
+		reloc_bitsize -= reloc_howto->rightshift;
+	      if (reloc_bitsize != operand->bits)
 		{
-		  as_bad (_("invalid relocation for field"));
+		  as_bad (_("invalid relocation %s for field"),
+			  bfd_get_reloc_code_name (reloc));
 		  return;
 		}
 	    }

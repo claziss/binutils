@@ -2628,21 +2628,21 @@ const unsigned arc_num_flag_special = sizeof (arc_flag_special_cases) / sizeof (
 
 const struct arc_reloc_equiv_tab arc_reloc_equiv[] =
   {
+    DEF (sda, "ld", F_AS9, BFD_RELOC_ARC_SDA_LDST, BFD_RELOC_ARC_SDA_LDST2),
+    DEF (sda, "st", F_AS9, BFD_RELOC_ARC_SDA_LDST, BFD_RELOC_ARC_SDA_LDST2),
+    DEF (sda, "ldw", F_AS9, BFD_RELOC_ARC_SDA_LDST, BFD_RELOC_ARC_SDA_LDST1),
+    DEF (sda, "ldh", F_AS9, BFD_RELOC_ARC_SDA_LDST, BFD_RELOC_ARC_SDA_LDST1),
+    DEF (sda, "stw", F_AS9, BFD_RELOC_ARC_SDA_LDST, BFD_RELOC_ARC_SDA_LDST1),
+    DEF (sda, "sth", F_AS9, BFD_RELOC_ARC_SDA_LDST, BFD_RELOC_ARC_SDA_LDST1),
+
     /*FIXME! missing relocation for ld_s r1,[GP, s11] */
     DEF (sda, 0, F_NULL, BFD_RELOC_ARC_SDA16_LD, BFD_RELOC_ARC_SDA16_LD),
     DEF (sda, 0, F_NULL, -SIMM10_A16_7_S, BFD_RELOC_ARC_SDA16_LD1),
     DEF (sda, 0, F_NULL, BFD_RELOC_ARC_SDA16_LD2, BFD_RELOC_ARC_SDA16_LD2),
     DEF (sda, 0, F_NULL, BFD_RELOC_ARC_32_ME, BFD_RELOC_ARC_SDA32_ME),
 
-    DEF (sda, "ld", F_ASFAKE, BFD_RELOC_ARC_SDA_LDST, BFD_RELOC_ARC_SDA_LDST2),
-    DEF (sda, "st", F_ASFAKE, BFD_RELOC_ARC_SDA_LDST, BFD_RELOC_ARC_SDA_LDST2),
-
     DEF (sda, 0, F_NULL, BFD_RELOC_ARC_SDA_LDST, BFD_RELOC_ARC_SDA_LDST),
 
-    DEF (sda, "ldw", F_ASFAKE, BFD_RELOC_ARC_SDA_LDST, BFD_RELOC_ARC_SDA_LDST1),
-    DEF (sda, "ldh", F_ASFAKE, BFD_RELOC_ARC_SDA_LDST, BFD_RELOC_ARC_SDA_LDST1),
-    DEF (sda, "stw", F_ASFAKE, BFD_RELOC_ARC_SDA_LDST, BFD_RELOC_ARC_SDA_LDST1),
-    DEF (sda, "sth", F_ASFAKE, BFD_RELOC_ARC_SDA_LDST, BFD_RELOC_ARC_SDA_LDST1),
   };
 
 const unsigned arc_num_equiv_tab = sizeof (arc_reloc_equiv) / sizeof (*arc_reloc_equiv);
