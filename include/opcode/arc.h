@@ -47,7 +47,7 @@ struct arc_opcode
   /* An array of operand codes.  Each code is an index into the
      operand table.  They appear in the order which the operands must
      appear in assembly code, and are terminated by a zero.  */
-  unsigned char operands[4];
+  unsigned char operands[6];
 
   /* An array of flag codes.  Each code is an index into the flag
      table.  They appear in the order which the flags must appear in
@@ -168,7 +168,8 @@ struct arc_operand
    the operands field of the arc_opcodes table.  */
 extern const struct arc_operand arc_operands[];
 extern const unsigned arc_num_operands;
-extern const unsigned arc_fake_idx_Toperand;
+extern const unsigned arc_Toperand;
+extern const unsigned arc_NToperand;
 
 /* Values defined for the flags field of a struct arc_operand.  */
 
@@ -214,7 +215,10 @@ extern const unsigned arc_fake_idx_Toperand;
 #define ARC_OPERAND_IGNORE      0x0400
 
 /* Don't check the range when matching */
-#define ARC_OPERAND_NCHK      0x0800
+#define ARC_OPERAND_NCHK        0x0800
+
+/* Mark the braket possition */
+#define ARC_OPERAND_BRAKET      0x1000
 
 /* Mask for selecting the type for typecheck purposes */
 #define ARC_OPERAND_TYPECHECK_MASK		\
@@ -269,5 +273,18 @@ struct arc_flag_special
 
 extern const struct arc_flag_special arc_flag_special_cases[];
 extern const unsigned arc_num_flag_special;
+
+/* Relocation equivalence structure. */
+struct arc_reloc_equiv_tab
+{
+  const char *name;	 /* String to lookup. */
+  const char *mnemonic;  /* Extra matching condition. */
+  unsigned flagcode;     /* Extra matching condition. */
+  signed int oldreloc;   /* old relocation */
+  signed int newreloc;   /* new relocation */
+};
+
+extern const struct arc_reloc_equiv_tab arc_reloc_equiv[];
+extern const unsigned arc_num_equiv_tab;
 
 #endif /* OPCODE_ARC_H */
