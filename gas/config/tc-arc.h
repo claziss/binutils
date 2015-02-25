@@ -98,3 +98,26 @@ extern long md_pcrel_from_section (struct fix *, segT);
 
 /* [ ] is index operator */
 #define NEED_INDEX_OPERATOR
+
+#define MAX_MEM_FOR_RS_ALIGN_CODE (1+2)
+/* HANDLE_ALIGN called after all the assembly has been done,
+   so we can fill in all the rs_align_code type frags with
+   nop instructions.  */
+#define HANDLE_ALIGN(FRAGP)	 arc_handle_align(FRAGP)
+
+/* Values passed to md_apply_fix3 don't include the symbol value.  */
+#define MD_APPLY_SYM_VALUE(FIX) 0
+
+/* No shared lib support, so we don't need to ensure
+   externally visible symbols can be overridden.  */
+#define EXTERN_FORCE_RELOC 0
+
+extern void arc_handle_align (fragS* fragP);
+
+/* ARC instructions, with operands and prefixes included, are a multiple
+   of two bytes long.  */
+#define DWARF2_LINE_MIN_INSN_LENGTH	2
+/* The lr register is r28.  */
+/* #define DWARF2_DEFAULT_RETURN_COLUMN	28 */
+/* Registers are generally saved at negative offsets to the CFA.  */
+/* #define DWARF2_CIE_DATA_ALIGNMENT	(-4) */

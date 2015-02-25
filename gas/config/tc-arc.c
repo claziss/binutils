@@ -40,7 +40,7 @@
 #define MAX_FLAG_NAME_LENGHT 3
 #define MAX_INSN_FIXUPS      2
 
-#define DEBUG
+//#define DEBUG
 
 #ifdef DEBUG
 # define pr_debug(fmt, args...) fprintf(stderr, fmt, ##args)
@@ -907,6 +907,19 @@ md_pcrel_from_section (fixS *fixP, segT sec)
   return base;
 }
 
+/* Given a BFD relocation find the coresponding operand */
+static struct arc_operand *
+find_operand_for_reloc (extended_bfd_reloc_code_real_type reloc)
+{
+  unsigned i;
+
+  gas_assert (reloc >= 0);
+  for (i = 0; i < arc_num_operands; i++)
+    if (arc_operands[i].default_reloc == reloc)
+      return &arc_operands[i];
+  return NULL;
+}
+
 /* Apply a fixup to the object code. At this point all symbol values
    should be fully resolved, and we attempt to completely resolve the
    reloc.  If we can not do that, we determine the correct reloc code
@@ -922,6 +935,7 @@ md_apply_fix (fixS *fixP, valueT *valP, segT seg)
   offsetT fx_offset;
   segT add_symbol_segment = absolute_section;
   segT sub_symbol_segment = absolute_section;
+  const struct arc_operand *operand;
 
   pr_debug("%s:%u: apply_fix: r_type=%d value=%lx offset=%lx\n",
 	   fixP->fx_file, fixP->fx_line, fixP->fx_r_type, value,
@@ -1000,66 +1014,70 @@ md_apply_fix (fixS *fixP, valueT *valP, segT seg)
 	}
     }
 
-  if (fixP->fx_done)
+  if (!fixP->fx_done)
+    return;
+
+
+  /* For hosts with longs bigger than 32-bits make sure that the top
+     bits of a 32-bit negative value read in by the parser are set,
+     so that the correct comparisons are made.  */
+  if (value & 0x80000000)
+    value |= (-1L << 31);
+
+  switch (fixP->fx_r_type)
     {
-      //value += fx_offset;
+    case BFD_RELOC_ARC_32_ME:
+      insn = value;
+      md_number_to_chars_midend (fixpos, insn, fixP->fx_size);
+      return;
+    case BFD_RELOC_ARC_S25W_PCREL:
+    case BFD_RELOC_ARC_S21H_PCREL:
+    case BFD_RELOC_ARC_S25H_PCREL:
+      operand = find_operand_for_reloc (fixP->fx_r_type);
+      gas_assert (operand);
+      break;
+    default:
+      {
+	if ((int) fixP->fx_r_type >= 0)
+	  as_fatal (_("unhandled relocation type %s"),
+		    bfd_get_reloc_code_name (fixP->fx_r_type));
 
-      /* For hosts with longs bigger than 32-bits make sure that the top
-         bits of a 32-bit negative value read in by the parser are set,
-         so that the correct comparisons are made.  */
-      if (value & 0x80000000)
-        value |= (-1L << 31);
+	/* The rest of these fixups needs to be completely resolved as
+	   constants. */
+	if (fixP->fx_addsy != 0
+	    && S_GET_SEGMENT (fixP->fx_addsy) != absolute_section)
+	  as_bad_where (fixP->fx_file, fixP->fx_line,
+			_("non-absolute expression in constant field"));
 
-      switch (fixP->fx_r_type)
+	gas_assert (-(int) fixP->fx_r_type < (int) arc_num_operands);
+	operand = &arc_operands[-(int) fixP->fx_r_type];
+	break;
+      }
+    }
+
+  if (target_big_endian)
+    insn = bfd_getb32 (fixpos);
+  else
+    {
+      insn = 0;
+      switch (fixP->fx_size)
 	{
-	case BFD_RELOC_ARC_32_ME:
-	  insn = value;
-	  md_number_to_chars_midend (fixpos, insn, fixP->fx_size);
+	case 4:
+	  insn = bfd_getl16 (fixpos) << 16 | bfd_getl16 (fixpos + 2);
+	  break;
+	case 2:
+	  insn = bfd_getl16 (fixpos);
 	  break;
 	default:
-	  {
-	    const struct arc_operand *operand;
-
-	    if ((int) fixP->fx_r_type >= 0)
-	      as_fatal (_("unhandled relocation type %s"),
-			bfd_get_reloc_code_name (fixP->fx_r_type));
-
-	    /* The rest of these fixups needs to be completely resolved as
-	       constants. */
-	    if (fixP->fx_addsy != 0
-		&& S_GET_SEGMENT (fixP->fx_addsy) != absolute_section)
-	      as_bad_where (fixP->fx_file, fixP->fx_line,
-			    _("non-absolute expression in constant field"));
-
-	    gas_assert (-(int) fixP->fx_r_type < (int) arc_num_operands);
-	    operand = &arc_operands[-(int) fixP->fx_r_type];
-
-	    if (target_big_endian)
-	      insn = bfd_getb32 (fixpos);
-	    else
-	      {
-		insn = 0;
-		switch (fixP->fx_size)
-		  {
-		  case 4:
-		    insn = bfd_getl16 (fixpos) << 16 | bfd_getl16 (fixpos + 2);
-		    break;
-		  case 2:
-		    insn = bfd_getl16 (fixpos);
-		    break;
-		  default:
-		    as_bad_where (fixP->fx_file, fixP->fx_line,
-				  _("unknown fixup size"));
-		  }
-	      }
-
-	    insn = insert_operand (insn, operand, (offsetT) value,
-				   fixP->fx_file, fixP->fx_line);
-
-	    md_number_to_chars_midend (fixpos, insn, fixP->fx_size);
-	  }
+	  as_bad_where (fixP->fx_file, fixP->fx_line,
+			_("unknown fixup size"));
 	}
     }
+
+  insn = insert_operand (insn, operand, (offsetT) value,
+			 fixP->fx_file, fixP->fx_line);
+
+  md_number_to_chars_midend (fixpos, insn, fixP->fx_size);
 }
 
 /* Prepare machine-dependent frags for relaxation.
@@ -1776,6 +1794,7 @@ assemble_insn (const struct arc_opcode *opcode,
 	  reloc_operand = operand;
 	  reloc_exp = t;
 
+#if 0
 	  if (reloc > 0)
 	    {
 	      /* sanity checks */
@@ -1792,6 +1811,7 @@ assemble_insn (const struct arc_opcode *opcode,
 		  return;
 		}
 	    }
+#endif
 	  if (insn->nfixups >= MAX_INSN_FIXUPS)
 	    as_fatal (_("too many fixups"));
 
@@ -1919,10 +1939,12 @@ emit_insn (struct arc_insn *insn)
       int size, pcrel;
       fixS *fixP;
 
+      size = (insn->short_insn && !insn->has_limm) ? 2 : 4;
+
        /* Some fixups are only used internally and so have no howto.  */
       if ((int) fixup->reloc < 0)
 	{
-	  size = 4;
+	  /*size = (insn->short_insn && !insn->has_limm) ? 2 : 4;*/
 	  pcrel = fixup->pcrel;
 	  pr_debug ("PCrel :%d\n", fixup->pcrel);
 	}
@@ -1933,14 +1955,18 @@ emit_insn (struct arc_insn *insn)
 				   (bfd_reloc_code_real_type) fixup->reloc);
 	  gas_assert (reloc_howto);
 
-	  size = bfd_get_reloc_size (reloc_howto);
+	  /* Somehow using this size leads to errors the difference is
+             made by the size of BFD_RELOC_ARC_SDA16_LD2 which is 2.
+	  */
+	  /*size = bfd_get_reloc_size (reloc_howto);*/
 	  pcrel = reloc_howto->pc_relative;
 	}
 
-      pr_debug ("%s:%d: emit_insn: new %s fixup\n",
+      pr_debug ("%s:%d: emit_insn: new %s fixup of size %d\n",
 		frag_now->fr_file, frag_now->fr_line,
 		(fixup->reloc < 0) ? "Internal" :
-		bfd_get_reloc_code_name (fixup->reloc));
+		bfd_get_reloc_code_name (fixup->reloc),
+		size);
       fixP = fix_new_exp (frag_now, f - frag_now->fr_literal + offset,
 			  size, &fixup->exp, pcrel, fixup->reloc);
     }
@@ -2008,4 +2034,28 @@ insert_operand (unsigned insn,
     }
 
   return insn;
+}
+
+/* This is a function to handle alignment and fill in the
+   gaps created with nop/nop_s.
+*/
+void
+arc_handle_align (fragS* fragP)
+{
+  char *dest = (fragP)->fr_literal + (fragP)->fr_fix;
+  valueT count = ((fragP)->fr_next->fr_address
+		  - (fragP)->fr_address - (fragP)->fr_fix);
+
+  if ((fragP)->fr_type != rs_align_code)
+    return;
+
+  (fragP)->fr_var = 2;
+
+  if (count & 1)/* Padding in the gap till the next 2-byte boundary
+		       with 0s.  */
+    {
+      (fragP)->fr_fix++;
+      *dest++ = 0;
+    }
+  md_number_to_chars (dest, 0x78e0, 2);  /*writing nop_s */
 }

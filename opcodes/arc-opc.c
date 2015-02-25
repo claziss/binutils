@@ -2441,7 +2441,7 @@ const struct arc_operand arc_operands[] =
 
     /* UIMM7_A32_11_S mask = 0000000000011111 */
 #define UIMM7_A32_11_S       (SIMM3_5_S + 1)
-    {7, 0, 0, ARC_OPERAND_UNSIGNED | ARC_OPERAND_ALIGNED32 | ARC_OPERAND_TRUNCATE, insert_uimm7_a32_11_s, extract_uimm7_a32_11_s},
+    {7, 0, 0, ARC_OPERAND_UNSIGNED | ARC_OPERAND_ALIGNED32 | ARC_OPERAND_TRUNCATE | ARC_OPERAND_IGNORE, insert_uimm7_a32_11_s, extract_uimm7_a32_11_s},
 
     /* UIMM7_9_S mask = 0000000001111111 */
 #define UIMM7_9_S       (UIMM7_A32_11_S + 1)
@@ -2472,18 +2472,21 @@ const struct arc_operand arc_operands[] =
 
     /* SIMM21_A16_5 mask = 00000111111111102222222222000000 */
 #define SIMM21_A16_5       (UIMM6_8 + 1)
-    {21, 0, 0, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED16 | ARC_OPERAND_TRUNCATE, insert_simm21_a16_5, extract_simm21_a16_5},
+    {21, 0, BFD_RELOC_ARC_S21H_PCREL, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED16 | ARC_OPERAND_TRUNCATE, insert_simm21_a16_5, extract_simm21_a16_5},
 
     /* SIMM25_A16_5 mask = 00000111111111102222222222003333 */
 #define SIMM25_A16_5       (SIMM21_A16_5 + 1)
-    {25, 0, 0, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED16 | ARC_OPERAND_TRUNCATE, insert_simm25_a16_5, extract_simm25_a16_5},
+    {25, 0, BFD_RELOC_ARC_S25H_PCREL, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED16 | ARC_OPERAND_TRUNCATE | ARC_OPERAND_PCREL, insert_simm25_a16_5, extract_simm25_a16_5},
 
     /* SIMM10_A16_7_S mask = 0000000111111111 */
 #define SIMM10_A16_7_S       (SIMM25_A16_5 + 1)
-    {10, 0, -SIMM10_A16_7_S, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED16 | ARC_OPERAND_TRUNCATE, insert_simm10_a16_7_s, extract_simm10_a16_7_s},
+    {10, 0, -SIMM10_A16_7_S, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED16 | ARC_OPERAND_TRUNCATE | ARC_OPERAND_PCREL, insert_simm10_a16_7_s, extract_simm10_a16_7_s},
+
+#define SIMM10_A16_7_Sbis    (SIMM10_A16_7_S + 1)
+    {10, 0, -SIMM10_A16_7_Sbis, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED16 | ARC_OPERAND_TRUNCATE, insert_simm10_a16_7_s, extract_simm10_a16_7_s},
 
     /* SIMM7_A16_10_S mask = 0000000000111111 */
-#define SIMM7_A16_10_S       (SIMM10_A16_7_S + 1)
+#define SIMM7_A16_10_S       (SIMM10_A16_7_Sbis + 1)
     {7, 0, 0, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED16 | ARC_OPERAND_TRUNCATE, insert_simm7_a16_10_s, extract_simm7_a16_10_s},
 
     /* SIMM21_A32_5 mask = 00000111111111002222222222000000 */
@@ -2492,7 +2495,7 @@ const struct arc_operand arc_operands[] =
 
     /* SIMM25_A32_5 mask = 00000111111111002222222222003333 */
 #define SIMM25_A32_5       (SIMM21_A32_5 + 1)
-    {25, 0, 0, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED32 | ARC_OPERAND_TRUNCATE, insert_simm25_a32_5, extract_simm25_a32_5},
+    {25, 0, BFD_RELOC_ARC_S25W_PCREL, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED32 | ARC_OPERAND_TRUNCATE | ARC_OPERAND_PCREL, insert_simm25_a32_5, extract_simm25_a32_5},
 
     /* SIMM13_A32_5_S mask = 0000011111111111 */
 #define SIMM13_A32_5_S       (SIMM25_A32_5 + 1)
@@ -2500,7 +2503,7 @@ const struct arc_operand arc_operands[] =
 
     /* SIMM8_A16_9_S mask = 0000000001111111 */
 #define SIMM8_A16_9_S       (SIMM13_A32_5_S + 1)
-    {8, 0, 0, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED16 | ARC_OPERAND_TRUNCATE, insert_simm8_a16_9_s, extract_simm8_a16_9_s},
+    {8, 0, -SIMM8_A16_9_S, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED16 | ARC_OPERAND_TRUNCATE | ARC_OPERAND_PCREL, insert_simm8_a16_9_s, extract_simm8_a16_9_s},
 
     /* UIMM3_23 mask = 00000000000000000000000111000000 */
 #define UIMM3_23       (SIMM8_A16_9_S + 1)
@@ -2532,11 +2535,11 @@ const struct arc_operand arc_operands[] =
 
     /* UIMM5_A32_11_S mask = 0000020000011000 */
 #define UIMM5_A32_11_S       (UIMM6_A16_11_S + 1)
-    {5, 0, 0, ARC_OPERAND_UNSIGNED | ARC_OPERAND_ALIGNED32 | ARC_OPERAND_TRUNCATE, insert_uimm5_a32_11_s, extract_uimm5_a32_11_s},
+    {5, 0, 0, ARC_OPERAND_UNSIGNED | ARC_OPERAND_ALIGNED32 | ARC_OPERAND_TRUNCATE | ARC_OPERAND_IGNORE, insert_uimm5_a32_11_s, extract_uimm5_a32_11_s},
 
     /* SIMM11_A32_13_S mask = 0000022222200111 */
 #define SIMM11_A32_13_S       (UIMM5_A32_11_S + 1)
-    {11, 0, 0, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED32 | ARC_OPERAND_TRUNCATE, insert_simm11_a32_13_s, extract_simm11_a32_13_s},
+    {11, 0, BFD_RELOC_ARC_SDA16_LD2, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED32 | ARC_OPERAND_TRUNCATE, insert_simm11_a32_13_s, extract_simm11_a32_13_s},
 
     /* UIMM7_13_S mask = 0000000022220111 */
 #define UIMM7_13_S       (SIMM11_A32_13_S + 1)
@@ -2639,9 +2642,9 @@ const struct arc_reloc_equiv_tab arc_reloc_equiv[] =
     DEF (sda, "stw", F_AS9, BFD_RELOC_ARC_SDA_LDST, BFD_RELOC_ARC_SDA_LDST1),
     DEF (sda, "sth", F_AS9, BFD_RELOC_ARC_SDA_LDST, BFD_RELOC_ARC_SDA_LDST1),
 
-    /*FIXME! missing relocation for ld_s r1,[GP, s11] */
+    /*FIXME! missing relocation for ld_s r1,[GP, s11]/st_s r0,[GP, s11] */
     DEF (sda, 0, F_NULL, BFD_RELOC_ARC_SDA16_LD, BFD_RELOC_ARC_SDA16_LD),
-    DEF (sda, 0, F_NULL, -SIMM10_A16_7_S, BFD_RELOC_ARC_SDA16_LD1),
+    DEF (sda, 0, F_NULL, -SIMM10_A16_7_Sbis, BFD_RELOC_ARC_SDA16_LD1),
     DEF (sda, 0, F_NULL, BFD_RELOC_ARC_SDA16_LD2, BFD_RELOC_ARC_SDA16_LD2),
     DEF (sda, 0, F_NULL, BFD_RELOC_ARC_32_ME, BFD_RELOC_ARC_SDA32_ME),
 
