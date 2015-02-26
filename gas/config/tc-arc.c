@@ -35,7 +35,7 @@
 /* Defines                                                                */
 /**************************************************************************/
 
-#define MAX_INSN_ARGS        3
+#define MAX_INSN_ARGS        5
 #define MAX_INSN_FLGS        3
 #define MAX_FLAG_NAME_LENGHT 3
 #define MAX_INSN_FIXUPS      2
@@ -199,6 +199,9 @@ struct arc_flags
 #define O_gotpc   O_md2     /* @gotpc relocation. */
 #define O_plt     O_md3     /* @plt relocation. */
 #define O_sda     O_md4     /* @sda relocation. */
+
+/* Used to define a bracket as operand in tokens. */
+#define O_bracket O_md5
 
 /* Dummy relocation, to be sorted out */
 #define DUMMY_RELOC_ARC_SDA     (BFD_RELOC_UNUSED + 1)
@@ -481,6 +484,7 @@ debug_exp (expressionS *t)
     case O_logical_and:		name = "O_logical_and";		break;
     case O_logical_or:		name = "O_logical_or";		break;
     case O_index:		name = "O_index";		break;
+    case O_bracket: 		name = "O_bracket"; 		break;
     }
 
   switch (t->X_md)
@@ -510,7 +514,7 @@ tokenize_arguments (char *str,
   char *old_input_line_pointer;
   bfd_boolean saw_comma = FALSE;
   bfd_boolean saw_arg = FALSE;
-  bfd_boolean saw_brk = FALSE;
+  int brk_lvl = 0;
   int num_args = 0;
   const char *p;
   int i;
@@ -539,18 +543,24 @@ tokenize_arguments (char *str,
 	  saw_comma = TRUE;
 	  break;
 
-	  /* FIXME! just smartly ignore '[' and ']'. I should check
-	     against the mnemonic syntax. */
 	case ']':
-	  saw_brk = FALSE;
-	  if(!saw_arg)
+	  ++input_line_pointer;
+	  --brk_lvl;
+	  if (!saw_arg)
 	    goto err;
-	  /* FALL THROUGH */
+	  tok->X_op = O_bracket;
+	  ++tok;
+	  ++num_args;
+	  break;
+
 	case '[':
 	  input_line_pointer++;
-	  if (saw_brk)
+	  if (brk_lvl)
 	    goto err;
-	  saw_brk = TRUE;
+	  ++brk_lvl;
+	  tok->X_op = O_bracket;
+	  ++tok;
+	  ++num_args;
 	  break;
 
 	case '@':
@@ -641,14 +651,16 @@ tokenize_arguments (char *str,
     }
 
  fini:
-  if (saw_comma)
+  if (saw_comma || brk_lvl)
     goto err;
   input_line_pointer = old_input_line_pointer;
 
   return num_args;
 
  err:
-  if (saw_comma)
+  if (brk_lvl)
+    as_bad (_("Brackets in operand field incorrect"));
+  else if (saw_comma)
     as_bad (_("extra comma"));
   else if (!saw_arg)
     as_bad (_("missing argument"));
@@ -1461,7 +1473,7 @@ find_opcode_match (const struct arc_opcode *first_opcode,
 	  const struct arc_operand *operand = &arc_operands[*opidx];
 
 	  /* Only take input from real operands.  */
-	  if (operand->flags & ARC_OPERAND_FAKE)
+	  if (operand->flags & ARC_OPERAND_FAKE && !(operand->flags & ARC_OPERAND_BRAKET))
 	    continue;
 
 	  /* Search for potential ignored operands */
@@ -1515,6 +1527,12 @@ find_opcode_match (const struct arc_opcode *first_opcode,
 		    goto match_failed;
 		}
 	      t = &tok[tokidx];
+	      break;
+
+	    case ARC_OPERAND_BRAKET:
+	      /* Check if bracket is also in opcode table as operand. */
+	      if (tok[tokidx].X_op != O_bracket)
+	                goto match_failed;
 	      break;
 
 	    case ARC_OPERAND_LIMM:
@@ -1768,6 +1786,10 @@ assemble_insn (const struct arc_opcode *opcode,
 	    insn->limm = t->X_add_number;
 	  break;
 
+	case O_bracket:
+	  /* Ignore brackets. */
+	  break;
+
 	default:
 	  /* This operand needs a relocation. */
 	  if (reloc == BFD_RELOC_UNUSED)
@@ -1897,7 +1919,7 @@ emit_insn (struct arc_insn *insn)
   int i, offset = 0;
 
   pr_debug ("Emit insn: 0x%x\n", insn->insn);
-  pr_debug ("\tSort    : 0x%d\n", insn->short_insn);
+  pr_debug ("\tShort   : 0x%d\n", insn->short_insn);
   pr_debug ("\tLong imm: 0x%lx\n", insn->limm);
 
   /* Write out the instruction.  */

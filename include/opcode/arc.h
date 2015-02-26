@@ -224,7 +224,7 @@ extern const unsigned arc_NToperand;
 #define ARC_OPERAND_TYPECHECK_MASK		\
   (ARC_OPERAND_IR |				\
    ARC_OPERAND_LIMM | ARC_OPERAND_SIGNED | 	\
-   ARC_OPERAND_UNSIGNED)
+   ARC_OPERAND_UNSIGNED | ARC_OPERAND_BRAKET)
 
 /* The flags structure  */
 struct arc_flag_operand
