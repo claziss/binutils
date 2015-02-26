@@ -112,6 +112,17 @@ extern long md_pcrel_from_section (struct fix *, segT);
    externally visible symbols can be overridden.  */
 #define EXTERN_FORCE_RELOC 0
 
+/* You may define this macro to generate a fixup for a data
+   allocation pseudo-op.  */
+#define TC_CONS_FIX_NEW(FRAG,OFF,LEN,EXP)	\
+  fix_new_exp (FRAG, OFF, (int)LEN, EXP, 0,	\
+	       LEN == 1 ? BFD_RELOC_8		\
+	       : LEN == 2 ? BFD_RELOC_16	\
+	       : LEN == 3 ? BFD_RELOC_24	\
+	       : LEN == 4 ? BFD_RELOC_32	\
+	       : LEN == 8 ? BFD_RELOC_64	\
+	       : BFD_RELOC_NONE); /*FIXME! Add a special reloc here i.e. BFD_RELOC_ARC_LINKAGE */
+
 extern void arc_handle_align (fragS* fragP);
 
 /* ARC instructions, with operands and prefixes included, are a multiple

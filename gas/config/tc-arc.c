@@ -1186,6 +1186,7 @@ md_atof (int type,
 	 char *litP,
 	 int *sizeP)
 {
+#if 0
   int              i;
   int              prec;
   LITTLENUM_TYPE   words [MAX_LITTLENUMS];
@@ -1227,6 +1228,9 @@ md_atof (int type,
   }
 
   return 0;
+#else
+  return ieee_md_atof (type, litP, sizeP, target_big_endian);
+#endif
 }
 
 /* Called for any expression that can not be recognized.  When the
