@@ -261,7 +261,7 @@ static void emit_insn (struct arc_insn *);
 static unsigned insert_operand (unsigned, const struct arc_operand *,
 				offsetT, char *, unsigned);
 static const struct arc_opcode *find_special_case (const char *opname,
-        int *nflgs, struct arc_flags *pflags);
+	int *nflgs, struct arc_flags *pflags);
 
 /**************************************************************************/
 /* Functions implementation                                               */
@@ -599,7 +599,7 @@ tokenize_arguments (char *str,
 
 	  /* Go through known relocation and try to find a match. */
 	  r = &arc_reloc_op[0];
- 	  for (i = arc_num_reloc_op - 1; i >= 0; i--, r++)
+	  for (i = arc_num_reloc_op - 1; i >= 0; i--, r++)
 	    if (len == r->length && memcmp (p, r->name, len) == 0)
 	      break;
 
@@ -619,7 +619,7 @@ tokenize_arguments (char *str,
 #ifdef DEBUG
 	  //print_expr (tok);
 #endif
- 	  debug_exp (tok);
+	  debug_exp (tok);
 
 	  saw_comma = FALSE;
 	  saw_arg = TRUE;
@@ -635,7 +635,7 @@ tokenize_arguments (char *str,
 	  expression (tok);
 
 	normalsymbol:
- 	  debug_exp (tok);
+	  debug_exp (tok);
 #ifdef DEBUG
 	  //print_expr (tok);
 #endif
@@ -1235,7 +1235,7 @@ md_atof (int type,
   for (i = 0; i < prec; i++)
   {
     md_number_to_chars (litP, (valueT) words[i],
-                        sizeof (LITTLENUM_TYPE));
+			sizeof (LITTLENUM_TYPE));
     litP += sizeof (LITTLENUM_TYPE);
   }
 
@@ -1392,8 +1392,8 @@ assemble_tokens (const char *opname,
 
 static const struct arc_opcode *
 find_special_case (const char *opname,
-        int *nflgs,
-        struct arc_flags *pflags)
+	int *nflgs,
+	struct arc_flags *pflags)
 {
   int i;
   char *flagnm;
@@ -1409,29 +1409,29 @@ find_special_case (const char *opname,
       oplen = strlen (arc_flag_special_opcode->name);
 
       if (strncmp (opname, arc_flag_special_opcode->name, oplen) != 0)
-        continue;
+	continue;
 
       /* Found a potential special case instruction, now test for flags. */
       for (flag_arr_idx = 0;; ++flag_arr_idx)
-        {
-          flag_idx = arc_flag_special_opcode->flags[flag_arr_idx];
-          if (flag_idx == 0)
-            break;  /* End of array, nothing found. */
+	{
+	  flag_idx = arc_flag_special_opcode->flags[flag_arr_idx];
+	  if (flag_idx == 0)
+	    break;  /* End of array, nothing found. */
 
-          flagnm = arc_flag_operands[flag_idx].name;
-          flaglen = strlen(flagnm);
-          if (strcmp (opname + oplen, flagnm) == 0)
-            {
-              opcode = (const struct arc_opcode *) hash_find(arc_opcode_hash,
-                arc_flag_special_opcode->name);
-              if (*nflgs + 1 > MAX_INSN_FLGS)
-                break;
-              memcpy (pflags[*nflgs].name, flagnm, flaglen);
-              pflags[*nflgs].name[flaglen] = '\0';
-              (*nflgs)++;
-              return opcode;
-            }
-        }
+	  flagnm = arc_flag_operands[flag_idx].name;
+	  flaglen = strlen(flagnm);
+	  if (strcmp (opname + oplen, flagnm) == 0)
+	    {
+	      opcode = (const struct arc_opcode *) hash_find(arc_opcode_hash,
+		arc_flag_special_opcode->name);
+	      if (*nflgs + 1 > MAX_INSN_FLGS)
+		break;
+	      memcpy (pflags[*nflgs].name, flagnm, flaglen);
+	      pflags[*nflgs].name[flaglen] = '\0';
+	      (*nflgs)++;
+	      return opcode;
+	    }
+	}
     }
   return NULL;
 }
@@ -1473,7 +1473,8 @@ find_opcode_match (const struct arc_opcode *first_opcode,
 	  const struct arc_operand *operand = &arc_operands[*opidx];
 
 	  /* Only take input from real operands.  */
-	  if (operand->flags & ARC_OPERAND_FAKE && !(operand->flags & ARC_OPERAND_BRAKET))
+	  if ((operand->flags & ARC_OPERAND_FAKE)
+	      && !(operand->flags & ARC_OPERAND_BRAKET))
 	    continue;
 
 	  /* Search for potential ignored operands */
@@ -1532,7 +1533,7 @@ find_opcode_match (const struct arc_opcode *first_opcode,
 	    case ARC_OPERAND_BRAKET:
 	      /* Check if bracket is also in opcode table as operand. */
 	      if (tok[tokidx].X_op != O_bracket)
-	                goto match_failed;
+		goto match_failed;
 	      break;
 
 	    case ARC_OPERAND_LIMM:
@@ -1544,6 +1545,19 @@ find_opcode_match (const struct arc_opcode *first_opcode,
 		case O_absent:
 		case O_register:
 		  goto match_failed;
+
+		case O_bracket:
+		  /* Got an (too) early bracket, check if it is an
+		     ignored operand. N.B. This procedure works only
+		     when bracket is the last operand! */
+		  if (!(operand->flags & ARC_OPERAND_IGNORE))
+		    goto match_failed;
+		  /* Insert the missing operand */
+		  ++ntok;
+		  memcpy(&tok[tokidx+1], &tok[tokidx], sizeof(*tok));
+		  tok[tokidx].X_op =  O_constant;
+		  tok[tokidx].X_add_number = 0;
+		  /* Fall through */
 
 		case O_constant:
 		  /* Check the range. */
@@ -1747,9 +1761,10 @@ assemble_insn (const struct arc_opcode *opcode,
       const struct arc_operand *operand = &arc_operands[*argidx];
       const expressionS *t = (const expressionS *) 0;
 
-      if (operand->flags & ARC_OPERAND_FAKE)
+      if ((operand->flags & ARC_OPERAND_FAKE)
+	  && !(operand->flags & ARC_OPERAND_BRAKET))
 	continue;
-      
+
       if (operand->flags & ARC_OPERAND_DUPLICATE)
 	{
 	  /* Duplicate operand, already inserted. */
@@ -1982,7 +1997,7 @@ emit_insn (struct arc_insn *insn)
 	  gas_assert (reloc_howto);
 
 	  /* Somehow using this size leads to errors the difference is
-             made by the size of BFD_RELOC_ARC_SDA16_LD2 which is 2.
+	     made by the size of BFD_RELOC_ARC_SDA16_LD2 which is 2.
 	  */
 	  /*size = bfd_get_reloc_size (reloc_howto);*/
 	  pcrel = reloc_howto->pc_relative;

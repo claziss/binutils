@@ -2073,15 +2073,19 @@ const struct arc_flag_operand arc_flag_operands[] =
     /* FLAG. */
 #define F_FLAG     (F_PNZ + 1)
     { "f",  1, 1, 15, 1 },
+#define F_FFAKE     (F_FLAG + 1)
+    { "f",  0, 0, 0, 1 },
 
     /* Delay slot. */
-#define F_ND       (F_FLAG + 1)
+#define F_ND       (F_FFAKE + 1)
     { "nd", 0, 1, 5, 0 },
 #define F_D        (F_ND + 1)
     { "d",  1, 1, 5, 1 },
+#define F_DFAKE    (F_D + 1)
+    { "d",  0, 0, 0, 1 },
 
     /* Data size. */
-#define F_SIZEB1   (F_D + 1)
+#define F_SIZEB1   (F_DFAKE + 1)
     { "b", 1, 2, 1, 0 },
 #define F_SIZEB7   (F_SIZEB1 + 1)
     { "b", 1, 2, 7, 0 },
@@ -2097,11 +2101,13 @@ const struct arc_flag_operand arc_flag_operands[] =
     /* Sign extension. */
 #define F_SIGN6   (F_SIZEW17 + 1)
     { "x", 1, 1, 6, 1 },
-#define F_SIGN16   (F_SIGN6 + 1)
+#define F_SIGN16  (F_SIGN6 + 1)
     { "x", 1, 1, 16, 1 },
+#define F_SIGNX   (F_SIGN16 + 1)
+    { "x", 0, 0, 0, 1 },
 
     /* Address write-back modes. */
-#define F_A3       (F_SIGN16 + 1)
+#define F_A3       (F_SIGNX + 1)
     { "a", 1, 2, 3, 1 },
 #define F_A9       (F_A3 + 1)
     { "a", 1, 2, 9, 1 },
@@ -2184,41 +2190,44 @@ const struct arc_flag_class arc_flag_classes[] =
 
 #define C_F         (C_AA_ADDR22 + 1)
     { 0, { F_FLAG, F_NULL } },
+#define C_FHARD     (C_F + 1)
+    { 0, { F_FFAKE, F_NULL } },
 
-#define C_T         (C_F + 1)
+#define C_T         (C_FHARD + 1)
     { 0, { F_NT, F_T, F_NULL } },
 #define C_D         (C_T + 1)
     { 0, { F_ND, F_D, F_NULL } },
 
 #define C_DHARD     (C_D + 1)
-    { 0, { F_D, F_NULL } },
+    { 0, { F_DFAKE, F_NULL } },
 
 #define C_DI20      (C_DHARD + 1)
-    { 0, { F_DI11 }},
+    { 0, { F_DI11, F_NULL }},
 #define C_DI16      (C_DI20 + 1)
-    { 0, { F_DI15 }},
+    { 0, { F_DI15, F_NULL }},
 #define C_DI26      (C_DI16 + 1)
-    { 0, { F_DI5 }},
+    { 0, { F_DI5, F_NULL }},
 
 #define C_X25       (C_DI26 + 1)
-    { 0, { F_SIGN6 }},
+    { 0, { F_SIGN6, F_NULL }},
 #define C_X15      (C_X25 + 1)
-    { 0, { F_SIGN16 }},
+    { 0, { F_SIGN16, F_NULL }},
+#define C_XHARD    (C_X15 + 1)
 #define C_X        (C_X15 + 1)
-    { 0, { F_SIGN6 }}, /*FIXME! needs to be fake */
+    { 0, { F_SIGNX, F_NULL }},
 
 #define C_ZZ13        (C_X + 1)
-    { 0, { F_SIZEB17, F_SIZEW17, F_H17}},
+    { 0, { F_SIZEB17, F_SIZEW17, F_H17, F_NULL}},
 #define C_ZZ23        (C_ZZ13 + 1)
-    { 0, { F_SIZEB7, F_SIZEW7, F_H7}},
+    { 0, { F_SIZEB7, F_SIZEW7, F_H7, F_NULL}},
 #define C_ZZ29        (C_ZZ23 + 1)
-    { 0, { F_SIZEB1, F_SIZEW1, F_H1}},
+    { 0, { F_SIZEB1, F_SIZEW1, F_H1, F_NULL}},
 
 #define C_AS        (C_ZZ29 + 1)
-    { 0, { F_ASFAKE}},
+    { 0, { F_ASFAKE, F_NULL}},
 
 #define C_NE        (C_AS + 1)
-    { 0, { F_NE}},
+    { 0, { F_NE, F_NULL}},
   };
 
 /* Common combinations of FLAGS.  */
@@ -2328,6 +2337,7 @@ const struct arc_operand arc_operands[] =
 
     /* Fake operand to handle the T flag. */
 #define BRAKET          (ZA + 1)
+#define BRAKETdup       (ZA + 1)
     { 0, 0, 0, ARC_OPERAND_FAKE | ARC_OPERAND_BRAKET, 0, 0 },
 
     /* Fake operand to handle the T flag. */
@@ -2491,7 +2501,7 @@ const struct arc_operand arc_operands[] =
 
     /* SIMM21_A32_5 mask = 00000111111111002222222222000000 */
 #define SIMM21_A32_5       (SIMM7_A16_10_S + 1)
-    {21, 0, 0, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED32 | ARC_OPERAND_TRUNCATE, insert_simm21_a32_5, extract_simm21_a32_5},
+    {21, 0, BFD_RELOC_ARC_S21W_PCREL, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED32 | ARC_OPERAND_TRUNCATE | ARC_OPERAND_PCREL, insert_simm21_a32_5, extract_simm21_a32_5},
 
     /* SIMM25_A32_5 mask = 00000111111111002222222222003333 */
 #define SIMM25_A32_5       (SIMM21_A32_5 + 1)
