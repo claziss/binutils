@@ -139,8 +139,11 @@ struct arc_fixup
   /* index into arc_operands */
   unsigned int opindex;
 
-  /*PC-relative, used by internals fixups. */
+  /* PC-relative, used by internals fixups. */
   unsigned char pcrel;
+
+  /* TRUE if this fixup is for LIMM operand */
+  bfd_boolean islong;
 };
 
 struct arc_insn
@@ -261,7 +264,7 @@ static void emit_insn (struct arc_insn *);
 static unsigned insert_operand (unsigned, const struct arc_operand *,
 				offsetT, char *, unsigned);
 static const struct arc_opcode *find_special_case (const char *opname,
-        int *nflgs, struct arc_flags *pflags);
+	int *nflgs, struct arc_flags *pflags);
 
 /**************************************************************************/
 /* Functions implementation                                               */
@@ -599,7 +602,7 @@ tokenize_arguments (char *str,
 
 	  /* Go through known relocation and try to find a match. */
 	  r = &arc_reloc_op[0];
- 	  for (i = arc_num_reloc_op - 1; i >= 0; i--, r++)
+	  for (i = arc_num_reloc_op - 1; i >= 0; i--, r++)
 	    if (len == r->length && memcmp (p, r->name, len) == 0)
 	      break;
 
@@ -619,7 +622,7 @@ tokenize_arguments (char *str,
 #ifdef DEBUG
 	  //print_expr (tok);
 #endif
- 	  debug_exp (tok);
+	  debug_exp (tok);
 
 	  saw_comma = FALSE;
 	  saw_arg = TRUE;
@@ -635,7 +638,7 @@ tokenize_arguments (char *str,
 	  expression (tok);
 
 	normalsymbol:
- 	  debug_exp (tok);
+	  debug_exp (tok);
 #ifdef DEBUG
 	  //print_expr (tok);
 #endif
@@ -925,7 +928,6 @@ find_operand_for_reloc (extended_bfd_reloc_code_real_type reloc)
 {
   unsigned i;
 
-  gas_assert (reloc >= 0);
   for (i = 0; i < arc_num_operands; i++)
     if (arc_operands[i].default_reloc == reloc)
       return &arc_operands[i];
@@ -949,8 +951,10 @@ md_apply_fix (fixS *fixP, valueT *valP, segT seg)
   segT sub_symbol_segment = absolute_section;
   const struct arc_operand *operand;
 
-  pr_debug("%s:%u: apply_fix: r_type=%d value=%lx offset=%lx\n",
-	   fixP->fx_file, fixP->fx_line, fixP->fx_r_type, value,
+  pr_debug("%s:%u: apply_fix: r_type=%d (%s) value=%lx offset=%lx\n",
+	   fixP->fx_file, fixP->fx_line, fixP->fx_r_type,
+	   (fixP->fx_r_type < 0) ? "Internal":
+	   bfd_get_reloc_code_name (fixP->fx_r_type), value,
 	   fixP->fx_offset);
 
   fx_addsy = fixP->fx_addsy;
@@ -1235,7 +1239,7 @@ md_atof (int type,
   for (i = 0; i < prec; i++)
   {
     md_number_to_chars (litP, (valueT) words[i],
-                        sizeof (LITTLENUM_TYPE));
+			sizeof (LITTLENUM_TYPE));
     litP += sizeof (LITTLENUM_TYPE);
   }
 
@@ -1392,8 +1396,8 @@ assemble_tokens (const char *opname,
 
 static const struct arc_opcode *
 find_special_case (const char *opname,
-        int *nflgs,
-        struct arc_flags *pflags)
+	int *nflgs,
+	struct arc_flags *pflags)
 {
   int i;
   char *flagnm;
@@ -1409,29 +1413,29 @@ find_special_case (const char *opname,
       oplen = strlen (arc_flag_special_opcode->name);
 
       if (strncmp (opname, arc_flag_special_opcode->name, oplen) != 0)
-        continue;
+	continue;
 
       /* Found a potential special case instruction, now test for flags. */
       for (flag_arr_idx = 0;; ++flag_arr_idx)
-        {
-          flag_idx = arc_flag_special_opcode->flags[flag_arr_idx];
-          if (flag_idx == 0)
-            break;  /* End of array, nothing found. */
+	{
+	  flag_idx = arc_flag_special_opcode->flags[flag_arr_idx];
+	  if (flag_idx == 0)
+	    break;  /* End of array, nothing found. */
 
-          flagnm = arc_flag_operands[flag_idx].name;
-          flaglen = strlen(flagnm);
-          if (strcmp (opname + oplen, flagnm) == 0)
-            {
-              opcode = (const struct arc_opcode *) hash_find(arc_opcode_hash,
-                arc_flag_special_opcode->name);
-              if (*nflgs + 1 > MAX_INSN_FLGS)
-                break;
-              memcpy (pflags[*nflgs].name, flagnm, flaglen);
-              pflags[*nflgs].name[flaglen] = '\0';
-              (*nflgs)++;
-              return opcode;
-            }
-        }
+	  flagnm = arc_flag_operands[flag_idx].name;
+	  flaglen = strlen(flagnm);
+	  if (strcmp (opname + oplen, flagnm) == 0)
+	    {
+	      opcode = (const struct arc_opcode *) hash_find(arc_opcode_hash,
+		arc_flag_special_opcode->name);
+	      if (*nflgs + 1 > MAX_INSN_FLGS)
+		break;
+	      memcpy (pflags[*nflgs].name, flagnm, flaglen);
+	      pflags[*nflgs].name[flaglen] = '\0';
+	      (*nflgs)++;
+	      return opcode;
+	    }
+	}
     }
   return NULL;
 }
@@ -1473,7 +1477,8 @@ find_opcode_match (const struct arc_opcode *first_opcode,
 	  const struct arc_operand *operand = &arc_operands[*opidx];
 
 	  /* Only take input from real operands.  */
-	  if (operand->flags & ARC_OPERAND_FAKE && !(operand->flags & ARC_OPERAND_BRAKET))
+	  if ((operand->flags & ARC_OPERAND_FAKE)
+	      && !(operand->flags & ARC_OPERAND_BRAKET))
 	    continue;
 
 	  /* Search for potential ignored operands */
@@ -1532,7 +1537,7 @@ find_opcode_match (const struct arc_opcode *first_opcode,
 	    case ARC_OPERAND_BRAKET:
 	      /* Check if bracket is also in opcode table as operand. */
 	      if (tok[tokidx].X_op != O_bracket)
-	                goto match_failed;
+		goto match_failed;
 	      break;
 
 	    case ARC_OPERAND_LIMM:
@@ -1544,6 +1549,19 @@ find_opcode_match (const struct arc_opcode *first_opcode,
 		case O_absent:
 		case O_register:
 		  goto match_failed;
+
+		case O_bracket:
+		  /* Got an (too) early bracket, check if it is an
+		     ignored operand. N.B. This procedure works only
+		     when bracket is the last operand! */
+		  if (!(operand->flags & ARC_OPERAND_IGNORE))
+		    goto match_failed;
+		  /* Insert the missing operand */
+		  ++ntok;
+		  memcpy(&tok[tokidx+1], &tok[tokidx], sizeof(*tok));
+		  tok[tokidx].X_op =  O_constant;
+		  tok[tokidx].X_add_number = 0;
+		  /* Fall through */
 
 		case O_constant:
 		  /* Check the range. */
@@ -1747,9 +1765,10 @@ assemble_insn (const struct arc_opcode *opcode,
       const struct arc_operand *operand = &arc_operands[*argidx];
       const expressionS *t = (const expressionS *) 0;
 
-      if (operand->flags & ARC_OPERAND_FAKE)
+      if ((operand->flags & ARC_OPERAND_FAKE)
+	  && !(operand->flags & ARC_OPERAND_BRAKET))
 	continue;
-      
+
       if (operand->flags & ARC_OPERAND_DUPLICATE)
 	{
 	  /* Duplicate operand, already inserted. */
@@ -1848,6 +1867,8 @@ assemble_insn (const struct arc_opcode *opcode,
 	  pcrel = (operand->flags & ARC_OPERAND_PCREL) ?
 	    1 : 0;
 	  fixup->pcrel = pcrel;
+	  fixup->islong = (operand->flags & ARC_OPERAND_LIMM) ?
+	    TRUE : FALSE;
 	  break;
 	}
     }
@@ -1898,6 +1919,7 @@ assemble_insn (const struct arc_opcode *opcode,
 	      fixup->exp = *reloc_exp;
 	      fixup->reloc = -bitYoperand;
 	      fixup->pcrel = pcrel;
+	      fixup->islong = FALSE;
 	    }
 	}
       else
@@ -1916,7 +1938,7 @@ static void
 emit_insn (struct arc_insn *insn)
 {
   char *f;
-  int i, offset = 0;
+  int i;
 
   pr_debug ("Emit insn: 0x%x\n", insn->insn);
   pr_debug ("\tShort   : 0x%d\n", insn->short_insn);
@@ -1930,7 +1952,6 @@ emit_insn (struct arc_insn *insn)
 	  f = frag_more (6);
 	  md_number_to_chars (f, insn->insn, 2);
 	  md_number_to_chars_midend (f + 2, insn->limm, 4);
-	  offset = 2;
 	  dwarf2_emit_insn (6);
 	}
       else
@@ -1947,7 +1968,6 @@ emit_insn (struct arc_insn *insn)
 	  f = frag_more (8);
 	  md_number_to_chars_midend (f, insn->insn, 4);
 	  md_number_to_chars_midend (f + 4, insn->limm, 4);
-	  offset = 4;
 	  dwarf2_emit_insn (8);
 	}
       else
@@ -1962,15 +1982,18 @@ emit_insn (struct arc_insn *insn)
   for (i = 0; i < insn->nfixups; i++)
     {
       struct arc_fixup *fixup = &insn->fixups[i];
-      int size, pcrel;
+      int size, pcrel, offset = 0;
       fixS *fixP;
 
-      size = (insn->short_insn && !insn->has_limm) ? 2 : 4;
+      //size = (insn->short_insn && !fixup->islong ) ? 2 : 4;
 
-       /* Some fixups are only used internally and so have no howto.  */
+      if (fixup->islong)
+	offset = (insn->short_insn) ? 2 : 4;
+
+       /* Some fixups are only used internally, thus no howto.  */
       if ((int) fixup->reloc < 0)
 	{
-	  /*size = (insn->short_insn && !insn->has_limm) ? 2 : 4;*/
+	  size = (insn->short_insn && !fixup->islong) ? 2 : 4;
 	  pcrel = fixup->pcrel;
 	  pr_debug ("PCrel :%d\n", fixup->pcrel);
 	}
@@ -1980,19 +2003,15 @@ emit_insn (struct arc_insn *insn)
 	    bfd_reloc_type_lookup (stdoutput,
 				   (bfd_reloc_code_real_type) fixup->reloc);
 	  gas_assert (reloc_howto);
-
-	  /* Somehow using this size leads to errors the difference is
-             made by the size of BFD_RELOC_ARC_SDA16_LD2 which is 2.
-	  */
-	  /*size = bfd_get_reloc_size (reloc_howto);*/
+	  size = bfd_get_reloc_size (reloc_howto);
 	  pcrel = reloc_howto->pc_relative;
 	}
 
-      pr_debug ("%s:%d: emit_insn: new %s fixup of size %d\n",
+      pr_debug ("%s:%d: emit_insn: new %s fixup of size %d @ offset %d\n",
 		frag_now->fr_file, frag_now->fr_line,
 		(fixup->reloc < 0) ? "Internal" :
 		bfd_get_reloc_code_name (fixup->reloc),
-		size);
+		size, offset);
       fixP = fix_new_exp (frag_now, f - frag_now->fr_literal + offset,
 			  size, &fixup->exp, pcrel, fixup->reloc);
     }
