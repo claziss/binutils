@@ -139,8 +139,11 @@ struct arc_fixup
   /* index into arc_operands */
   unsigned int opindex;
 
-  /*PC-relative, used by internals fixups. */
+  /* PC-relative, used by internals fixups. */
   unsigned char pcrel;
+
+  /* TRUE if this fixup is for LIMM operand */
+  bfd_boolean islong;
 };
 
 struct arc_insn
@@ -925,7 +928,6 @@ find_operand_for_reloc (extended_bfd_reloc_code_real_type reloc)
 {
   unsigned i;
 
-  gas_assert (reloc >= 0);
   for (i = 0; i < arc_num_operands; i++)
     if (arc_operands[i].default_reloc == reloc)
       return &arc_operands[i];
@@ -949,8 +951,10 @@ md_apply_fix (fixS *fixP, valueT *valP, segT seg)
   segT sub_symbol_segment = absolute_section;
   const struct arc_operand *operand;
 
-  pr_debug("%s:%u: apply_fix: r_type=%d value=%lx offset=%lx\n",
-	   fixP->fx_file, fixP->fx_line, fixP->fx_r_type, value,
+  pr_debug("%s:%u: apply_fix: r_type=%d (%s) value=%lx offset=%lx\n",
+	   fixP->fx_file, fixP->fx_line, fixP->fx_r_type,
+	   (fixP->fx_r_type < 0) ? "Internal":
+	   bfd_get_reloc_code_name (fixP->fx_r_type), value,
 	   fixP->fx_offset);
 
   fx_addsy = fixP->fx_addsy;
@@ -1863,6 +1867,8 @@ assemble_insn (const struct arc_opcode *opcode,
 	  pcrel = (operand->flags & ARC_OPERAND_PCREL) ?
 	    1 : 0;
 	  fixup->pcrel = pcrel;
+	  fixup->islong = (operand->flags & ARC_OPERAND_LIMM) ?
+	    TRUE : FALSE;
 	  break;
 	}
     }
@@ -1913,6 +1919,7 @@ assemble_insn (const struct arc_opcode *opcode,
 	      fixup->exp = *reloc_exp;
 	      fixup->reloc = -bitYoperand;
 	      fixup->pcrel = pcrel;
+	      fixup->islong = FALSE;
 	    }
 	}
       else
@@ -1931,7 +1938,7 @@ static void
 emit_insn (struct arc_insn *insn)
 {
   char *f;
-  int i, offset = 0;
+  int i;
 
   pr_debug ("Emit insn: 0x%x\n", insn->insn);
   pr_debug ("\tShort   : 0x%d\n", insn->short_insn);
@@ -1945,7 +1952,6 @@ emit_insn (struct arc_insn *insn)
 	  f = frag_more (6);
 	  md_number_to_chars (f, insn->insn, 2);
 	  md_number_to_chars_midend (f + 2, insn->limm, 4);
-	  offset = 2;
 	  dwarf2_emit_insn (6);
 	}
       else
@@ -1962,7 +1968,6 @@ emit_insn (struct arc_insn *insn)
 	  f = frag_more (8);
 	  md_number_to_chars_midend (f, insn->insn, 4);
 	  md_number_to_chars_midend (f + 4, insn->limm, 4);
-	  offset = 4;
 	  dwarf2_emit_insn (8);
 	}
       else
@@ -1977,15 +1982,18 @@ emit_insn (struct arc_insn *insn)
   for (i = 0; i < insn->nfixups; i++)
     {
       struct arc_fixup *fixup = &insn->fixups[i];
-      int size, pcrel;
+      int size, pcrel, offset = 0;
       fixS *fixP;
 
-      size = (insn->short_insn && !insn->has_limm) ? 2 : 4;
+      //size = (insn->short_insn && !fixup->islong ) ? 2 : 4;
 
-       /* Some fixups are only used internally and so have no howto.  */
+      if (fixup->islong)
+	offset = (insn->short_insn) ? 2 : 4;
+
+       /* Some fixups are only used internally, thus no howto.  */
       if ((int) fixup->reloc < 0)
 	{
-	  /*size = (insn->short_insn && !insn->has_limm) ? 2 : 4;*/
+	  size = (insn->short_insn && !fixup->islong) ? 2 : 4;
 	  pcrel = fixup->pcrel;
 	  pr_debug ("PCrel :%d\n", fixup->pcrel);
 	}
@@ -1995,19 +2003,15 @@ emit_insn (struct arc_insn *insn)
 	    bfd_reloc_type_lookup (stdoutput,
 				   (bfd_reloc_code_real_type) fixup->reloc);
 	  gas_assert (reloc_howto);
-
-	  /* Somehow using this size leads to errors the difference is
-	     made by the size of BFD_RELOC_ARC_SDA16_LD2 which is 2.
-	  */
-	  /*size = bfd_get_reloc_size (reloc_howto);*/
+	  size = bfd_get_reloc_size (reloc_howto);
 	  pcrel = reloc_howto->pc_relative;
 	}
 
-      pr_debug ("%s:%d: emit_insn: new %s fixup of size %d\n",
+      pr_debug ("%s:%d: emit_insn: new %s fixup of size %d @ offset %d\n",
 		frag_now->fr_file, frag_now->fr_line,
 		(fixup->reloc < 0) ? "Internal" :
 		bfd_get_reloc_code_name (fixup->reloc),
-		size);
+		size, offset);
       fixP = fix_new_exp (frag_now, f - frag_now->fr_literal + offset,
 			  size, &fixup->exp, pcrel, fixup->reloc);
     }
