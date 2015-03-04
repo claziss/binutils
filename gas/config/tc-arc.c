@@ -909,11 +909,20 @@ md_pcrel_from_section (fixS *fixP, segT sec)
     {
       switch (fixP->fx_r_type)
 	{
-	BFD_RELOC_ARC_PC32:
+	case BFD_RELOC_ARC_S21H_PCREL:
+	case BFD_RELOC_ARC_S25H_PCREL:
+	  base &= ~1;
+	  break;
+	case BFD_RELOC_ARC_S25W_PCREL:
+	  base &= ~3;
+	  break;
+	case BFD_RELOC_ARC_PC32:
 	  /* this is a limm, it should not be 32bit align
 	   ... but probably it needs. */
 	  //base &= ~3;
+	  break;
 	default:
+	  as_bad (_("unhandled reloc in md_pcrel_from_section"));
 	  break;
 	}
     }

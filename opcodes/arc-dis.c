@@ -159,7 +159,7 @@ print_insn_arc (bfd_vma memaddr,
     {
       opcode = &arc_opcodes[i];
 
-#if 0
+#if 1
       if ((insn[0] ^ opcode->opcode) & opcode->mask)
 	continue;
 #else
