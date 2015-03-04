@@ -2162,7 +2162,7 @@ assemble_insn (const struct arc_opcode *opcode,
     }
 
   /* Short instruction? */
-  insn->short_insn = (opcode->mask & 0xFFFF0000) ? 0 : 1;
+  insn->short_insn = ARC_SHORT (opcode->mask);
 
   insn->insn = image;
 }
