@@ -58,6 +58,8 @@ static const char * const regnames[32] = {
 #define FIELDB(word)	(BITS ((word), 15, 20))
 #define FIELDC(word)	(BITS ((word),  9, 14))
 
+#define OPCODE_AC(word)   (BITS ((word), 11, 15))
+
 /**************************************************************************/
 /* Functions implementation                                               */
 /**************************************************************************/
@@ -82,11 +84,10 @@ print_insn_arc (bfd_vma memaddr,
   unsigned int lowbyte, highbyte;
   int status, i;
   int insnLen = 0;
-  unsigned insn[2], isa_mask;
+  unsigned insn[2], isa_mask, op;
   const unsigned char *opidx;
   const unsigned char *flgidx;
-  const struct arc_opcode *opcode;
-
+  const struct arc_opcode *opcode, *opcode_end;
 
   lowbyte  = ((info->endian == BFD_ENDIAN_LITTLE) ? 1 : 0);
   highbyte = ((info->endian == BFD_ENDIAN_LITTLE) ? 0 : 1);
@@ -154,18 +155,26 @@ print_insn_arc (bfd_vma memaddr,
 
   info->disassembler_needs_relocs = TRUE; /*FIXME to be moved in dissasemble_init_for_target */
 
-
+  /* Find the first match in the opcode table.  */
   for (i = 0; i < arc_num_opcodes; i++)
     {
       opcode = &arc_opcodes[i];
 
-#if 1
+      if (ARC_SHORT (opcode->mask) && (insnLen == 2))
+	{
+	  if (OPCODE_AC (opcode->opcode) != OPCODE_AC (insn[0]))
+	    continue;
+	}
+      else if (!ARC_SHORT (opcode->mask) && (insnLen == 4))
+	{
+	  if (OPCODE (opcode->opcode) != OPCODE (insn[0]))
+	    continue;
+	}
+      else
+	continue;
+
       if ((insn[0] ^ opcode->opcode) & opcode->mask)
 	continue;
-#else
-      if ((insn[0] & opcode->mask) != opcode->opcode)
-	continue;
-#endif
 
       if (!(opcode->cpu & isa_mask))
 	continue;

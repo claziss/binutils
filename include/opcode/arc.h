@@ -111,6 +111,10 @@ extern const unsigned arc_num_opcodes;
   (ARC_OPCODE_ARC600 | ARC_OPCODE_ARC700	\
    | ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS)
 
+/* A macro to check for short instructions */
+#define ARC_SHORT(mask)				\
+  (((mask) & 0xFFFF0000) ? 0 : 1)
+
 /* The operands table is an array of struct arc_operand.  */
 struct arc_operand
 {
