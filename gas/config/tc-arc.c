@@ -202,14 +202,16 @@ struct arc_flags
 #define O_gotpc   O_md2     /* @gotpc relocation. */
 #define O_plt     O_md3     /* @plt relocation. */
 #define O_sda     O_md4     /* @sda relocation. */
+#define O_pcl     O_md5     /* @pcl relocation. */
+#define O_last    O_pcl
 
 /* Used to define a bracket as operand in tokens. */
-#define O_bracket O_md5
+#define O_bracket O_md32
 
 /* Dummy relocation, to be sorted out */
 #define DUMMY_RELOC_ARC_SDA     (BFD_RELOC_UNUSED + 1)
 
-#define USER_RELOC_P(R) ((R) >= O_gotoff && (R) <= O_sda)
+#define USER_RELOC_P(R) ((R) >= O_gotoff && (R) <= O_last)
 
 /* A table to map the spelling of a relocation operand into an appropriate
    bfd_reloc_code_real_type type.  The table is assumed to be ordered such
@@ -240,6 +242,7 @@ static const struct arc_reloc_op_tag
       DEF (gotpc,  BFD_RELOC_ARC_GOTPC32, 0),
       DEF (plt,    BFD_RELOC_ARC_PLT32,   0),
       DEF (sda,    DUMMY_RELOC_ARC_SDA,   1),
+      DEF (pcl,    BFD_RELOC_ARC_PC32,   0),
     };
 
 static const int arc_num_reloc_op
@@ -497,6 +500,7 @@ debug_exp (expressionS *t)
     case O_gotpc:               namemd = "O_gotpc";		break;
     case O_plt:                 namemd = "O_plt"; 		break;
     case O_sda:                 namemd = "O_sda"; 		break;
+    case O_pcl:                 namemd = "O_pcl"; 		break;
     }
 
   pr_debug ("%s(%s, %s, %d, %s)", name,
@@ -1818,6 +1822,7 @@ assemble_insn (const struct arc_opcode *opcode,
 		case O_gotoff:
 		case O_gotpc:
 		case O_plt:
+		case O_pcl:
 		  /*FIXME! PLT reloc works for both bl/bl<cc>
 		    instructions. Maybe a good idea is to separate
 		    them. */
@@ -1985,7 +1990,9 @@ emit_insn (struct arc_insn *insn)
       int size, pcrel, offset = 0;
       fixS *fixP;
 
-      //size = (insn->short_insn && !fixup->islong ) ? 2 : 4;
+      /*FIXME! the reloc size is wrong in the BFD file. When it
+	will be fixed please delete me. */
+      size = (insn->short_insn && !fixup->islong ) ? 2 : 4;
 
       if (fixup->islong)
 	offset = (insn->short_insn) ? 2 : 4;
@@ -1993,7 +2000,9 @@ emit_insn (struct arc_insn *insn)
        /* Some fixups are only used internally, thus no howto.  */
       if ((int) fixup->reloc < 0)
 	{
-	  size = (insn->short_insn && !fixup->islong) ? 2 : 4;
+	  /*FIXME! the reloc size is wrong in the BFD file. When it
+	    will be fixed please enable me. */
+	  /* size = (insn->short_insn && !fixup->islong) ? 2 : 4; */
 	  pcrel = fixup->pcrel;
 	  pr_debug ("PCrel :%d\n", fixup->pcrel);
 	}
@@ -2003,7 +2012,9 @@ emit_insn (struct arc_insn *insn)
 	    bfd_reloc_type_lookup (stdoutput,
 				   (bfd_reloc_code_real_type) fixup->reloc);
 	  gas_assert (reloc_howto);
-	  size = bfd_get_reloc_size (reloc_howto);
+	  /*FIXME! the reloc size is wrong in the BFD file. When it
+	    will be fixed please enable me. */
+	  /* size = bfd_get_reloc_size (reloc_howto); */
 	  pcrel = reloc_howto->pc_relative;
 	}
 
