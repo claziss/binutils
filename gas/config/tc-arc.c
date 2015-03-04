@@ -1574,7 +1574,6 @@ find_special_case_pseudo (const char *opname,
             snprintf (construct_operand, MAX_CONSTR_STR, "r%d", operand_pseudo->count);
           else
             snprintf (construct_operand, MAX_CONSTR_STR, "%d", operand_pseudo->count);
-
           tokenize_arguments (construct_operand, &tok[i], 1);
           ++(*ntok);
         }
@@ -1595,7 +1594,7 @@ find_special_case_pseudo (const char *opname,
                 /* Ignored. */
                 break;
             }
-        }
+       }
     }
 
   /* Swap operands if necessary. Only supports one swap at the moment.*/
@@ -1607,7 +1606,6 @@ find_special_case_pseudo (const char *opname,
         continue;
       
       swap_operand (tok, i, operand_pseudo->swap_operand_idx);
-
       /* Prevent a swap back later by breaking out. */
       break;
     }
