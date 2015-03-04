@@ -2623,7 +2623,7 @@ const struct arc_opcode arc_opcodes[] =
 
 const unsigned arc_num_opcodes = sizeof(arc_opcodes)/sizeof(*arc_opcodes);
 
-/* List with special cases instructions and the applicable flags */
+/* List with special cases instructions and the applicable flags. */
 const struct arc_flag_special arc_flag_special_cases[] =
   {
     { "b", { F_ALWAYS, F_RA, F_EQUAL, F_ZERO, F_NOTEQUAL, F_NOTZERO, F_POZITIVE, F_PL, F_NEGATIVE, F_MINUS, F_CARRY, F_CARRYSET, F_LOWER, F_CARRYCLR, F_NOTCARRY, F_HIGHER, F_OVERFLOWSET, F_OVERFLOW, F_NOTOVERFLOW, F_OVERFLOWCLR, F_GT, F_GE, F_LT, F_LE, F_HI, F_LS, F_PNZ, F_NULL } },
@@ -2663,3 +2663,35 @@ const struct arc_reloc_equiv_tab arc_reloc_equiv[] =
   };
 
 const unsigned arc_num_equiv_tab = sizeof (arc_reloc_equiv) / sizeof (*arc_reloc_equiv);
+
+const struct arc_pseudo_insn arc_pseudo_insns[] =
+  {
+    { "push", "st", ".aw", 5, { { RC, 0, 0, 0 }, { BRAKET, 1, 0, 1 }, { RB, 1, 28, 2 }, { SIMM9_8, 1, -4, 3 }, { BRAKETdup, 1, 0, 4} } },
+    { "pop", "ld", ".ab", 5, { { RA, 0, 0, 0 }, { BRAKET, 1, 0, 1 }, { RB, 1, 28, 2 }, { SIMM9_8, 1, 4, 3 }, { BRAKETdup, 1, 0, 4} } },
+
+    { "brgt", "brlt", NULL, 3, { { RB, 0, 0, 1 }, { RC, 0, 0, 0 }, { SIMM9_A16_8, 0, 0, 2 } } },
+    { "brgt", "brge", NULL, 3, { { RB, 0, 0, 0 }, { UIMM6_8, 0, 1, 1 }, { SIMM9_A16_8, 0, 0, 2 } } },
+    { "brgt", "brlt", NULL, 3, { { RB, 0, 0, 1 }, { LIMM, 0, 0, 0 }, { SIMM9_A16_8, 0, 0, 2 } } },
+    { "brgt", "brlt", NULL, 3, { { LIMM, 0, 0, 1 }, { RC, 0, 0, 0 }, { SIMM9_A16_8, 0, 0, 2 } } },
+    { "brgt", "brge", NULL, 3, { { LIMM, 0, 0, 0 }, { UIMM6_8, 0, 1, 1 }, { SIMM9_A16_8, 0, 0, 2 } } },
+
+    { "brhi", "brlo", NULL, 3, { { RB, 0, 0, 1 }, { RC, 0, 0, 0 }, { SIMM9_A16_8, 0, 0, 2 } } },
+    { "brhi", "brhs", NULL, 3, { { RB, 0, 0, 0 }, { UIMM6_8, 0, 1, 1 }, { SIMM9_A16_8, 0, 0, 2 } } },
+    { "brhi", "brlo", NULL, 3, { { RB, 0, 0, 1 }, { LIMM, 0, 0, 0 }, { SIMM9_A16_8, 0, 0, 2 } } },
+    { "brhi", "brlo", NULL, 3, { { LIMM, 0, 0, 1 }, { RC, 0, 0, 0 }, { SIMM9_A16_8, 0, 0, 2 } } },
+    { "brhi", "brhs", NULL, 3, { { LIMM, 0, 0, 0 }, { UIMM6_8, 0, 1, 1 }, { SIMM9_A16_8, 0, 0, 2 } } },
+
+    { "brle", "brge", NULL, 3, { { RB, 0, 0, 1 }, { RC, 0, 0, 0 }, { SIMM9_A16_8, 0, 0, 2 } } },
+    { "brle", "brlt", NULL, 3, { { RB, 0, 0, 0 }, { UIMM6_8, 0, 1, 1 }, { SIMM9_A16_8, 0, 0, 2 } } },
+    { "brle", "brge", NULL, 3, { { RB, 0, 0, 1 }, { LIMM, 0, 0, 0 }, { SIMM9_A16_8, 0, 0, 2 } } },
+    { "brle", "brge", NULL, 3, { { LIMM, 0, 0, 1 }, { RC, 0, 0, 0 }, { SIMM9_A16_8, 0, 0, 2 } } },
+    { "brle", "brlt", NULL, 3, { { LIMM, 0, 0, 0 }, { UIMM6_8, 0, 1, 1 }, { SIMM9_A16_8, 0, 0, 2 } } },
+
+    { "brls", "brhs", NULL, 3, { { RB, 0, 0, 1 }, { RC, 0, 0, 0 }, { SIMM9_A16_8, 0, 0, 2 } } },
+    { "brls", "brlo", NULL, 3, { { RB, 0, 0, 0 }, { UIMM6_8, 0, 1, 1 }, { SIMM9_A16_8, 0, 0, 2 } } },
+    { "brls", "brhs", NULL, 3, { { RB, 0, 0, 1 }, { LIMM, 0, 0, 0 }, { SIMM9_A16_8, 0, 0, 2 } } },
+    { "brls", "brhs", NULL, 3, { { LIMM, 0, 0, 1 }, { RC, 0, 0, 0 }, { SIMM9_A16_8, 0, 0, 2 } } },
+    { "brls", "brlo", NULL, 3, { { LIMM, 0, 0, 0 }, { UIMM6_8, 0, 1, 1 }, { SIMM9_A16_8, 0, 0, 2 } } },
+  };
+
+const unsigned arc_num_pseudo_insn = sizeof (arc_pseudo_insns) / sizeof (*arc_pseudo_insns);

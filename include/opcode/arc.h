@@ -291,4 +291,49 @@ struct arc_reloc_equiv_tab
 extern const struct arc_reloc_equiv_tab arc_reloc_equiv[];
 extern const unsigned arc_num_equiv_tab;
 
+/* Check if operation is handling a register. */
+//#define ARC_OPERAND_OP_REGISTER 0x01
+
+/* Check if operand is inserted by assembler or by pseudo instruction. */
+#define ARC_OPERAND_OP_INSERT   0x02
+
+/* If operand is a bracket. */
+//#define ARC_OPERAND_OP_BRACKET  0x04
+
+/* Operand is a long immediate. */
+//#define ARC_OPERAND_OP_LIMM     0x08
+
+/* Structure for operand operations for pseudo/alias instructions. */
+struct arc_operand_operation
+{
+  /* The index for operand from operand array. */
+  unsigned operand_idx;
+
+  /* Defines if it needs the operand inserted by the assembler, if this operand
+     is from the pseudo instruction's operands and whether or not this operand
+     is a register or not. */
+  unsigned char needs_insert;
+
+  /* Count we have to add to the operand. Use negative number to subtract from
+     the operand. Also use this number to add to 0 if it's a constant (i.e.
+     is_constant != 0). */
+  int count;
+
+  /* Index of the operand to swap with. To be done AFTER applying inc_count. */
+  unsigned swap_operand_idx;
+};
+
+/* Structure for pseudo/alias instructions. */
+struct arc_pseudo_insn
+{
+  const char *mnemonic_p;	                /* Mnemonic for pseudo/alias insn. */
+  const char *mnemonic_r;                 /* Mnemonic for real opcode. */
+  const char *flag_r;                     /* Flag that will have to be added. */
+  unsigned operand_cnt;                   /* Amount of operands. */
+  struct arc_operand_operation operand[6];/* Array of operand operations. */
+};
+
+extern const struct arc_pseudo_insn arc_pseudo_insns[];
+extern const unsigned arc_num_pseudo_insn;
+
 #endif /* OPCODE_ARC_H */
