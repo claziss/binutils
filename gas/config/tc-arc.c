@@ -252,6 +252,11 @@ static const int arc_num_reloc_op
 /* Flags to set in the elf header. */
 static flagword arc_eflag = 0x00;
 
+/* Nop and nop_s opcode for alignment insertion. */
+static unsigned const arc_nop_s = 0x000078e0,
+                        arc_nop = 0x264A7000;
+
+
 /**************************************************************************/
 /* Functions declaration                                                  */
 /**************************************************************************/
@@ -2321,20 +2326,55 @@ insert_operand (unsigned insn,
 void
 arc_handle_align (fragS* fragP)
 {
+  unsigned noop_size, noop, fix = 0;
   char *dest = (fragP)->fr_literal + (fragP)->fr_fix;
-  valueT count = ((fragP)->fr_next->fr_address
-		  - (fragP)->fr_address - (fragP)->fr_fix);
+  valueT count = ((fragP)->fr_next->fr_address - (fragP)->fr_address -
+    (fragP)->fr_fix);
+  valueT alignment_offset = count % 4;
 
   if ((fragP)->fr_type != rs_align_code)
     return;
 
-  (fragP)->fr_var = 2;
-
-  if (count & 1)/* Padding in the gap till the next 2-byte boundary
-		       with 0s.  */
+  /* Check 4-byte alignment. */
+  if (alignment_offset == 2 || alignment_offset == 1)
     {
-      (fragP)->fr_fix++;
+      noop_size = 2;
+      noop = arc_nop_s;
+    }
+  else
+    {
+      noop_size = 4;
+      noop = arc_nop;
+    }
+
+  /* Padding in the gap till the next 2-byte boundary with 0s. */
+  if (count & 1)
+    {
+      fix += 1;
       *dest++ = 0;
     }
-  md_number_to_chars (dest, 0x78e0, 2);  /*writing nop_s */
+
+  md_number_to_chars_midend (dest, noop, noop_size); /* Writing nop(_s). */
+  fix += noop_size;
+  count -= noop_size;
+  (fragP)->fr_var = noop_size;
+  (fragP)->fr_fix += fix;
+
+  /* Check if there's a 4 byte aligned unfixed area left after the 2-byte
+     nop_s insert. */
+  if (count >= 4 && noop_size == 2)
+    {
+      noop_size = 4;
+      /* Added 4 for space for fr_literal (?). */
+      fragS *nop = xmalloc (SIZEOF_STRUCT_FRAG + noop_size);
+      memcpy (nop, fragP, SIZEOF_STRUCT_FRAG);
+      fragP->fr_next = nop;
+      fragP = nop;
+      nop->fr_address += nop->fr_fix;
+      nop->fr_fix = 0;
+      nop->fr_type = rs_align;
+      nop->fr_var = noop_size;
+      dest = nop->fr_literal;
+      md_number_to_chars_midend (dest, arc_nop, noop_size); /* Writing nop. */
+    }
 }
