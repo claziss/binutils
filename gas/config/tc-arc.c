@@ -2155,7 +2155,6 @@ arc_handle_align (fragS* fragP)
   fix += noop_size;
   count -= noop_size;
   (fragP)->fr_var = noop_size;
-  (fragP)->fr_fix += fix;
 
   /* Check if there's a 4 byte aligned unfixed area left after the 2-byte
      nop_s insert. */
@@ -2167,7 +2166,7 @@ arc_handle_align (fragS* fragP)
       memcpy (nop, fragP, SIZEOF_STRUCT_FRAG);
       fragP->fr_next = nop;
       fragP = nop;
-      nop->fr_address += nop->fr_fix;
+      nop->fr_address += nop->fr_fix + fix;
       nop->fr_fix = 0;
       nop->fr_type = rs_align;
       nop->fr_var = noop_size;
