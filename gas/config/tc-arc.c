@@ -203,13 +203,19 @@ struct arc_flags
 #define O_plt     O_md3     /* @plt relocation. */
 #define O_sda     O_md4     /* @sda relocation. */
 #define O_pcl     O_md5     /* @pcl relocation. */
-#define O_last    O_pcl
+#define O_tlsgd   O_md6     /* @tlsgd relocation. */
+#define O_tlsie   O_md7     /* @tlsie relocation. */
+#define O_tpoff9  O_md8     /* @tpoff9 relocation. */
+#define O_tpoff   O_md9     /* @tpoff relocation. */
+#define O_dtpoff9 O_md10    /* @dtpoff9 relocation. */
+#define O_dtpoff  O_md11    /* @dtpoff relocation. */
+#define O_last    O_dtpoff
 
 /* Used to define a bracket as operand in tokens. */
 #define O_bracket O_md32
 
 /* Dummy relocation, to be sorted out */
-#define DUMMY_RELOC_ARC_SDA     (BFD_RELOC_UNUSED + 1)
+#define DUMMY_RELOC_ARC_ENTRY     (BFD_RELOC_UNUSED + 1)
 
 #define USER_RELOC_P(R) ((R) >= O_gotoff && (R) <= O_last)
 
@@ -238,11 +244,19 @@ static const struct arc_reloc_op_tag
 }
   arc_reloc_op[] =
     {
-      DEF (gotoff, BFD_RELOC_ARC_GOTOFF,  1),
-      DEF (gotpc,  BFD_RELOC_ARC_GOTPC32, 0),
-      DEF (plt,    BFD_RELOC_ARC_PLT32,   0),
-      DEF (sda,    DUMMY_RELOC_ARC_SDA,   1),
-      DEF (pcl,    BFD_RELOC_ARC_PC32,   0),
+      DEF (gotoff,  BFD_RELOC_ARC_GOTOFF,     1),
+      DEF (gotpc,   BFD_RELOC_ARC_GOTPC32,    0),
+      DEF (plt,     BFD_RELOC_ARC_PLT32,      0), /* FIXME! we should use similar process like for sda. to select between s25/s21 PLT relocs. */
+      DEF (sda,     DUMMY_RELOC_ARC_ENTRY,    1), /* Relocation type depends on instruction used. */
+      DEF (pcl,     BFD_RELOC_ARC_PC32,       0),
+#if 0 /* Enable when TLS bfd support is added. */
+      DEF (tlsgd,   BFD_RELOC_ARC_TLS_GD_GOT, 0),
+      DEF (tlsie,   BFD_RELOC_ARC_TLS_IE_GOT, 0),
+      DEF (tpoff9,  BFD_RELOC_ARC_TLS_LE_S9,  0),
+      DEF (tpoff,   BFD_RELOC_ARC_TLS_LE_32,  0),
+      DEF (dtpoff9, BFD_RELOC_ARC_TLS_LE_32,  0),
+      DEF (dtpoff,  BFD_RELOC_ARC_TLS_DTPOFF, 0),
+#endif
     };
 
 static const int arc_num_reloc_op
@@ -501,6 +515,12 @@ debug_exp (expressionS *t)
     case O_plt:                 namemd = "O_plt"; 		break;
     case O_sda:                 namemd = "O_sda"; 		break;
     case O_pcl:                 namemd = "O_pcl"; 		break;
+    case O_tlsgd:               namemd = "O_tlsgd"; 		break;
+    case O_tlsie:               namemd = "O_tlsie"; 		break;
+    case O_tpoff9:              namemd = "O_tpoff9"; 		break;
+    case O_tpoff:               namemd = "O_tpoff"; 		break;
+    case O_dtpoff9:             namemd = "O_dtpoff9"; 		break;
+    case O_dtpoff:              namemd = "O_dtpoff"; 		break;
     }
 
   pr_debug ("%s(%s, %s, %d, %s)", name,
@@ -1473,7 +1493,6 @@ find_opcode_match (const struct arc_opcode *first_opcode,
       const unsigned char *flgidx;
       int tokidx = 0;
       const expressionS *t;
-      bfd_boolean fl_ignore = FALSE;
 
       pr_debug ("%s:%d: find_opcode_match: trying opcode 0x%08X\n",
 		frag_now->fr_file, frag_now->fr_line, opcode->opcode);
@@ -1494,25 +1513,9 @@ find_opcode_match (const struct arc_opcode *first_opcode,
 	      && !(operand->flags & ARC_OPERAND_BRAKET))
 	    continue;
 
-	  /* Search for potential ignored operands */
-	  if (operand->flags & ARC_OPERAND_IGNORE)
-	    fl_ignore = TRUE;
-
-	tryagain:
 	  /* When we expect input, make sure we have it.  */
 	  if (tokidx >= ntok)
-	    {
-	      if (fl_ignore)
-		{
-		  ++ntok;
-		  fl_ignore = FALSE;
-		  /* Make a fake argument */
-		  tok[tokidx].X_op =  O_constant;
-		  tok[tokidx].X_add_number = 0;
-		  goto tryagain;
-		}
-	      goto match_failed;
-	    }
+	    goto match_failed;
 
 	  /* Match operand type with expression type.  */
 	  switch (operand->flags & ARC_OPERAND_TYPECHECK_MASK)
@@ -1841,6 +1844,14 @@ assemble_insn (const struct arc_opcode *opcode,
 		  reloc = find_reloc ("sda", opcode->name,
 				      pflags, nflg,
 				      operand->default_reloc);
+		  break;
+		case O_tlsgd:
+		case O_tlsie:
+		case O_tpoff9:
+		case O_tpoff:
+		case O_dtpoff9:
+		case O_dtpoff:
+		  as_bad (_("TLS relocs are not supported yet"));
 		  break;
 		default:
 		  /* Just consider the default relocation. */
