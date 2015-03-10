@@ -26,6 +26,7 @@
    file.  */
 #define TC_ARC
 
+/* We want local label support.  */
 #define LOCAL_LABELS_FB 1
 
 /* This macro is the BFD architecture to pass to `bfd_set_arch_mach'.  */
@@ -100,6 +101,7 @@ extern long md_pcrel_from_section (struct fix *, segT);
 #define NEED_INDEX_OPERATOR
 
 #define MAX_MEM_FOR_RS_ALIGN_CODE (1+2)
+
 /* HANDLE_ALIGN called after all the assembly has been done,
    so we can fill in all the rs_align_code type frags with
    nop instructions.  */
@@ -123,6 +125,15 @@ extern long md_pcrel_from_section (struct fix *, segT);
 	       : LEN == 8 ? BFD_RELOC_64	\
 	       : BFD_RELOC_NONE); /*FIXME! Add a special reloc here i.e. BFD_RELOC_ARC_LINKAGE */
 
+#define GLOBAL_OFFSET_TABLE_NAME "_GLOBAL_OFFSET_TABLE_"
+#define DYNAMIC_STRUCT_NAME "_DYNAMIC"
+
+/* We need to take care of not having section relative fixups for the
+   fixups with respect to Position Independent Code */
+#define tc_fix_adjustable(FIX)  tc_arc_fix_adjustable(FIX)
+
+
+extern int tc_arc_fix_adjustable (struct fix *);
 extern void arc_handle_align (fragS* fragP);
 
 /* ARC instructions, with operands and prefixes included, are a multiple
@@ -132,3 +143,7 @@ extern void arc_handle_align (fragS* fragP);
 /* #define DWARF2_DEFAULT_RETURN_COLUMN	28 */
 /* Registers are generally saved at negative offsets to the CFA.  */
 /* #define DWARF2_CIE_DATA_ALIGNMENT	(-4) */
+
+/* Define the NOPs (the first one is also used by generic code) */
+#define NOP_OPCODE   0x000078E0
+#define NOP_OPCODE_L 0x264A7000 /* mov 0,0 */
