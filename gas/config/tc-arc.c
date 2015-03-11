@@ -266,10 +266,8 @@ static const int arc_num_reloc_op
 /* Flags to set in the elf header. */
 static flagword arc_eflag = 0x00;
 
-/* Nop and nop_s opcode for alignment insertion. */
-static unsigned const arc_nop_s = 0x000078e0,
-  arc_nop = 0x264A7000;
-
+/* Pre-defined "_GLOBAL_OFFSET_TABLE_"  */
+symbolS * GOT_symbol = 0;
 
 /**************************************************************************/
 /* Functions declaration                                                  */
@@ -292,6 +290,7 @@ static const struct arc_opcode *find_special_case (const char *opname,
 						   int *nflgs, struct arc_flags *pflags, expressionS *tok, int *ntok);
 static const struct arc_opcode *find_special_case_pseudo (const char *opname,
 							  int *ntok, expressionS *tok, int *nflgs, struct arc_flags *pflags);
+static int get_arc_exp_reloc_type (int, int, expressionS *);
 
 /**************************************************************************/
 /* Functions implementation                                               */
@@ -1062,7 +1061,7 @@ md_apply_fix (fixS *fixP,
       switch (fixP->fx_r_type)
 	{
 	case BFD_RELOC_ARC_32_ME:
-	  fixP->fx_r_type = BFD_RELOC_ARC_PC32;
+	  fixP->fx_r_type = BFD_RELOC_ARC_PC32; /*FIXME! Not sure if it is ok. Probably we should end in an error here */
 	  break;
 	default:
 	  if ((int) fixP->fx_r_type < 0)
@@ -1084,6 +1083,8 @@ md_apply_fix (fixS *fixP,
 
   switch (fixP->fx_r_type)
     {
+    case BFD_RELOC_ARC_GOTPC32:
+    case BFD_RELOC_ARC_GOTOFF:
     case BFD_RELOC_ARC_32_ME:
       insn = value;
       md_number_to_chars_midend (fixpos, insn, fixP->fx_size);
@@ -1172,6 +1173,7 @@ tc_gen_reloc (asection *section ATTRIBUTE_UNUSED,
 	      fixS *fixP)
 {
   arelent *reloc;
+  bfd_reloc_code_real_type code;
 
   reloc = (arelent *) xmalloc (sizeof (* reloc));
   reloc->sym_ptr_ptr = (asymbol **) xmalloc (sizeof (asymbol *));
@@ -1182,18 +1184,26 @@ tc_gen_reloc (asection *section ATTRIBUTE_UNUSED,
      They'd better have been fully resolved by this point.  */
   gas_assert ((int) fixP->fx_r_type > 0);
 
-  reloc->howto = bfd_reloc_type_lookup (stdoutput, fixP->fx_r_type);
+  code = fixP->fx_r_type;
+
+  /* if we have something like add gp, pcl, _GLOBAL_OFFSET_TABLE_@gotpc. */
+  if (code == BFD_RELOC_ARC_GOTPC32
+      && GOT_symbol
+      && fixP->fx_addsy == GOT_symbol)
+    code = BFD_RELOC_ARC_GOTPC;
+
+  reloc->howto = bfd_reloc_type_lookup (stdoutput, code);
   if (reloc->howto == NULL)
     {
       as_bad_where (fixP->fx_file, fixP->fx_line,
 		    _("cannot represent `%s' relocation in object file"),
-		    bfd_get_reloc_code_name (fixP->fx_r_type));
+		    bfd_get_reloc_code_name (code));
       return NULL;
     }
 
   if (!fixP->fx_pcrel != !reloc->howto->pc_relative)
     as_fatal (_("internal error? cannot generate `%s' relocation"),
-	      bfd_get_reloc_code_name (fixP->fx_r_type));
+	      bfd_get_reloc_code_name (code));
 
   gas_assert (!fixP->fx_pcrel == !reloc->howto->pc_relative);
 
@@ -1228,6 +1238,27 @@ md_convert_frag (bfd *abfd ATTRIBUTE_UNUSED,
 symbolS *
 md_undefined_symbol (char *name)
 {
+  /* The arc abi demands that a GOT[0] should be referencible as
+     [ pc+_DYNAMIC@gotpc ].Hence we convert a _DYNAMIC@gotpc to
+     a GOTPC reference to _GLOBAL_OFFSET_TABLE_  */
+  if (((*name == '_')
+       && (*(name+1) == 'G')
+       && (strcmp(name, GLOBAL_OFFSET_TABLE_NAME) == 0))
+      || ((*name == '_')
+	  && (*(name+1) == 'D')
+	  && (strcmp(name, DYNAMIC_STRUCT_NAME) == 0)))
+    {
+      if(!GOT_symbol)
+	{
+	  if(symbol_find(name))
+	    as_bad("GOT already in symbol table");
+
+	  GOT_symbol = symbol_new (GLOBAL_OFFSET_TABLE_NAME, undefined_section,
+				   (valueT) 0, &zero_address_frag);
+	};
+      return GOT_symbol;
+    }
+
   return NULL;
 }
 
@@ -2022,10 +2053,14 @@ assemble_insn (const struct arc_opcode *opcode,
 		case O_gotoff:
 		case O_gotpc:
 		case O_plt:
-		case O_pcl:
 		  /*FIXME! PLT reloc works for both bl/bl<cc>
 		    instructions. Maybe a good idea is to separate
 		    them. */
+		  if (GOT_symbol == NULL)
+		    GOT_symbol = symbol_find_or_make (GLOBAL_OFFSET_TABLE_NAME);
+		  /* Fall-through */
+
+		case O_pcl:
 		  reloc = ARC_RELOC_TABLE(t->X_md)->reloc;
 		  break;
 		case O_sda:
@@ -2035,6 +2070,10 @@ assemble_insn (const struct arc_opcode *opcode,
 		  break;
 		case O_tlsgd:
 		case O_tlsie:
+		  if (GOT_symbol == NULL)
+		    GOT_symbol = symbol_find_or_make (GLOBAL_OFFSET_TABLE_NAME);
+		  /* Fall-through */
+
 		case O_tpoff9:
 		case O_tpoff:
 		case O_dtpoff9:
@@ -2313,12 +2352,12 @@ arc_handle_align (fragS* fragP)
   if (alignment_offset == 2 || alignment_offset == 1)
     {
       noop_size = 2;
-      noop = arc_nop_s;
+      noop = NOP_OPCODE;
     }
   else
     {
       noop_size = 4;
-      noop = arc_nop;
+      noop = NOP_OPCODE_L;
     }
 
   /* Padding in the gap till the next 2-byte boundary with 0s. */
@@ -2348,6 +2387,47 @@ arc_handle_align (fragS* fragP)
       nop->fr_type = rs_align;
       nop->fr_var = noop_size;
       dest = nop->fr_literal;
-      md_number_to_chars_midend (dest, arc_nop, noop_size); /* Writing nop. */
+      md_number_to_chars_midend (dest, NOP_OPCODE_L, noop_size); /* Writing nop. */
     }
+}
+
+/* Compute the reloc type of an expression EXP.
+
+   DEFAULT_TYPE is the type to use if no special processing is required,
+   and PCREL_TYPE the one for pc-relative relocations.  */
+
+static int
+get_arc_exp_reloc_type (int default_type,
+			int pcrel_type,
+			expressionS *exp)
+{
+  if (default_type == BFD_RELOC_32
+      && exp->X_op == O_subtract
+      && exp->X_op_symbol != NULL
+      && exp->X_op_symbol->bsym->section == now_seg)
+    return pcrel_type;
+  return default_type;
+}
+
+/*
+ * Here we decide which fixups can be adjusted to make them relative to
+ * the beginning of the section instead of the symbol.  Basically we need
+ * to make sure that the dynamic relocations are done correctly, so in
+ * some cases we force the original symbol to be used.
+ */
+int
+tc_arc_fix_adjustable (fixS *fixP)
+{
+
+  /* Prevent all adjustments to global symbols. */
+  if (S_IS_EXTERNAL (fixP->fx_addsy))
+    return 0;
+  if (S_IS_WEAK (fixP->fx_addsy))
+    return 0;
+
+  /* adjust_reloc_syms doesn't know about the GOT */
+  if (fixP->fx_r_type == BFD_RELOC_ARC_GOTPC32)
+    /*PLT!: || fixP->fx_r_type == BFD_RELOC_ARC_PLT32)*/
+    return 0;
+  return 1;
 }
