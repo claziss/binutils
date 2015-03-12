@@ -53,8 +53,8 @@
 /* Macros                                                                 */
 /**************************************************************************/
 
-#define regno(x)		((x) & 31)
-#define is_ir_num(x)		(((x) & 32) == 0)
+#define regno(x)		((x) & 0x3F)
+#define is_ir_num(x)		(((x) & ~0x3F) == 0)
 
 /**************************************************************************/
 /* Generic assembler global variables which must be defined by all        */
@@ -1083,18 +1083,26 @@ md_apply_fix (fixS *fixP,
 
   switch (fixP->fx_r_type)
     {
+    case BFD_RELOC_8:
+    case BFD_RELOC_16:
+    case BFD_RELOC_24:
+    case BFD_RELOC_32:
+      md_number_to_chars (fixpos, value, fixP->fx_size);
+      return;
+
     case BFD_RELOC_ARC_GOTPC32:
     case BFD_RELOC_ARC_GOTOFF:
     case BFD_RELOC_ARC_32_ME:
-      insn = value;
-      md_number_to_chars_midend (fixpos, insn, fixP->fx_size);
+      md_number_to_chars_midend (fixpos, value, fixP->fx_size);
       return;
+
     case BFD_RELOC_ARC_S25W_PCREL:
     case BFD_RELOC_ARC_S21H_PCREL:
     case BFD_RELOC_ARC_S25H_PCREL:
       operand = find_operand_for_reloc (fixP->fx_r_type);
       gas_assert (operand);
       break;
+
     default:
       {
 	if ((int) fixP->fx_r_type >= 0)
@@ -1285,6 +1293,13 @@ md_atof (int type,
 void
 md_operand (expressionS *expressionP ATTRIBUTE_UNUSED)
 {
+  char *p = input_line_pointer;
+  if (*p == '@')
+    {
+      input_line_pointer++;
+      expressionP->X_op = O_symbol;
+      expression (expressionP);
+    }
 }
 
 /* md_parse_option
@@ -1307,6 +1322,8 @@ int
 md_parse_option (int c,
 		 char *arg ATTRIBUTE_UNUSED)
 {
+  int cpu_flags = EF_ARC_CPU_GENERIC;
+
   switch (c)
     {
     case OPTION_MCPU:
@@ -1330,6 +1347,7 @@ md_parse_option (int c,
 		arc_target = cpu_types[i].flags;
 		arc_target_name = cpu_types[i].name;
 		arc_mach_type = cpu_types[i].mach;
+		cpu_flags = cpu_types[i].eflags;
 		mach_type_specified_p = 1;
 		break;
 	      }
@@ -1353,6 +1371,11 @@ md_parse_option (int c,
     default:
       return 0;
     }
+
+#if 0
+  if (cpu_flags != EF_ARC_CPU_GENERIC)
+    arc_eflag = (arc_eflag & ~EF_ARC_MACH_MSK) | cpu_flags;
+#endif /* FIXME!*/
 
   return 1;
 }
