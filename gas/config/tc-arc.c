@@ -1331,7 +1331,11 @@ int
 md_parse_option (int c,
 		 char *arg ATTRIBUTE_UNUSED)
 {
+#if 0
   int cpu_flags = EF_ARC_CPU_GENERIC;
+#else
+  int cpu_flags;
+#endif /*FIXME*/
 
   switch (c)
     {
