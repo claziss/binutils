@@ -660,6 +660,11 @@ tokenize_arguments (char *str,
 	  num_args++;
 	  break;
 
+	case '%':
+	  /* Can be a register */
+	  ++input_line_pointer;
+	  /* Fall through */
+
 	default:
 
 	  if (saw_arg && !saw_comma)
@@ -878,6 +883,7 @@ md_begin (void)
   asm_record_register ("ilink1", 29);
   asm_record_register ("ilink2", 30);
   asm_record_register ("blink", 31);
+  asm_record_register ("lp_count", 60);
   asm_record_register ("pcl", 63);
 }
 
@@ -939,6 +945,7 @@ md_pcrel_from_section (fixS *fixP,
 	case BFD_RELOC_ARC_S25H_PCREL:
 	  base &= ~1;
 	  break;
+	case BFD_RELOC_ARC_S21W_PCREL:
 	case BFD_RELOC_ARC_S25W_PCREL:
 	  base &= ~3;
 	  break;
@@ -948,7 +955,8 @@ md_pcrel_from_section (fixS *fixP,
 	  //base &= ~3;
 	  break;
 	default:
-	  as_bad (_("unhandled reloc in md_pcrel_from_section"));
+	  as_bad (_("unhandled reloc %s in md_pcrel_from_section"),
+		  bfd_get_reloc_code_name (fixP->fx_r_type));
 	  break;
 	}
     }
@@ -1097,6 +1105,7 @@ md_apply_fix (fixS *fixP,
       return;
 
     case BFD_RELOC_ARC_S25W_PCREL:
+    case BFD_RELOC_ARC_S21W_PCREL:
     case BFD_RELOC_ARC_S21H_PCREL:
     case BFD_RELOC_ARC_S25H_PCREL:
       operand = find_operand_for_reloc (fixP->fx_r_type);
