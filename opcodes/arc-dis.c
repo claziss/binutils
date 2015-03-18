@@ -25,11 +25,16 @@
 #include "arc-ext.h"
 
 
-static const char * const regnames[32] = {
+static const char * const regnames[64] = {
   "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7",
   "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15",
   "r16", "r17", "r18", "r19", "r20", "r21", "r22", "r23",
-  "r24", "r25", "gp", "fp", "sp", "ilink", "r30", "blink"
+  "r24", "r25", "gp", "fp", "sp", "ilink", "r30", "blink",
+
+  "r32", "r33", "r34", "r35", "r36", "r37", "r38", "r39",
+  "r40", "r41", "r42", "r43", "r44", "r45", "r46", "r47",
+  "r48", "r49", "r50", "r51", "r52", "r53", "r54", "r55",
+  "r56", "r57", "ACCL", "ACCH", "lp_count", "rezerved", "LIMM", "pcl"
 };
 
 /**************************************************************************/
@@ -306,7 +311,7 @@ print_insn_arc (bfd_vma memaddr,
 
       if (need_comma)
 	(*info->fprintf_func) (info->stream, ",");
-      
+
       if (!open_braket && (operand->flags & ARC_OPERAND_BRAKET))
 	{
 	  (*info->fprintf_func) (info->stream, "[");
@@ -328,7 +333,7 @@ print_insn_arc (bfd_vma memaddr,
 	(*info->fprintf_func) (info->stream, "%#x", value);
 
       need_comma = 1;
-      
+
       /* adjust insn len*/
       if (operand->flags & ARC_OPERAND_LIMM
 	  && !(operand->flags & ARC_OPERAND_DUPLICATE))

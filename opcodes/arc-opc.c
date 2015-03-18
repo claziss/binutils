@@ -2470,7 +2470,7 @@ const struct arc_operand arc_operands[] =
     {6, 0, 0, ARC_OPERAND_UNSIGNED, insert_uimm6_13_s, extract_uimm6_13_s},
     /* UIMM5_11_S mask = 0000000000011111 */
 #define UIMM5_11_S       (UIMM6_13_S + 1)
-    {5, 0, 0, ARC_OPERAND_UNSIGNED, insert_uimm5_11_s, extract_uimm5_11_s},
+    {5, 0, 0, ARC_OPERAND_UNSIGNED | ARC_OPERAND_IGNORE, insert_uimm5_11_s, extract_uimm5_11_s},
 
     /* SIMM9_A16_8 mask = 00000000111111102000000000000000 */
 #define SIMM9_A16_8       (UIMM5_11_S + 1)
@@ -2497,7 +2497,7 @@ const struct arc_operand arc_operands[] =
 
     /* SIMM7_A16_10_S mask = 0000000000111111 */
 #define SIMM7_A16_10_S       (SIMM10_A16_7_Sbis + 1)
-    {7, 0, 0, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED16 | ARC_OPERAND_TRUNCATE, insert_simm7_a16_10_s, extract_simm7_a16_10_s},
+    {7, 0, -SIMM7_A16_10_S, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED16 | ARC_OPERAND_TRUNCATE | ARC_OPERAND_PCREL, insert_simm7_a16_10_s, extract_simm7_a16_10_s},
 
     /* SIMM21_A32_5 mask = 00000111111111002222222222000000 */
 #define SIMM21_A32_5       (SIMM7_A16_10_S + 1)
@@ -2541,7 +2541,7 @@ const struct arc_operand arc_operands[] =
 
     /* UIMM6_A16_11_S mask = 0000000000011111 */
 #define UIMM6_A16_11_S       (SIMM9_7_S + 1)
-    {6, 0, 0, ARC_OPERAND_UNSIGNED | ARC_OPERAND_ALIGNED16 | ARC_OPERAND_TRUNCATE, insert_uimm6_a16_11_s, extract_uimm6_a16_11_s},
+    {6, 0, 0, ARC_OPERAND_UNSIGNED | ARC_OPERAND_ALIGNED16 | ARC_OPERAND_TRUNCATE | ARC_OPERAND_IGNORE, insert_uimm6_a16_11_s, extract_uimm6_a16_11_s},
 
     /* UIMM5_A32_11_S mask = 0000020000011000 */
 #define UIMM5_A32_11_S       (UIMM6_A16_11_S + 1)

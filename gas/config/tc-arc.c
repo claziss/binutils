@@ -53,8 +53,8 @@
 /* Macros                                                                 */
 /**************************************************************************/
 
-#define regno(x)		((x) & 31)
-#define is_ir_num(x)		(((x) & 32) == 0)
+#define regno(x)		((x) & 0x3F)
+#define is_ir_num(x)		(((x) & ~0x3F) == 0)
 
 /**************************************************************************/
 /* Generic assembler global variables which must be defined by all        */
@@ -660,6 +660,11 @@ tokenize_arguments (char *str,
 	  num_args++;
 	  break;
 
+	case '%':
+	  /* Can be a register */
+	  ++input_line_pointer;
+	  /* Fall through */
+
 	default:
 
 	  if (saw_arg && !saw_comma)
@@ -878,6 +883,7 @@ md_begin (void)
   asm_record_register ("ilink1", 29);
   asm_record_register ("ilink2", 30);
   asm_record_register ("blink", 31);
+  asm_record_register ("lp_count", 60);
   asm_record_register ("pcl", 63);
 }
 
@@ -939,6 +945,7 @@ md_pcrel_from_section (fixS *fixP,
 	case BFD_RELOC_ARC_S25H_PCREL:
 	  base &= ~1;
 	  break;
+	case BFD_RELOC_ARC_S21W_PCREL:
 	case BFD_RELOC_ARC_S25W_PCREL:
 	  base &= ~3;
 	  break;
@@ -948,7 +955,8 @@ md_pcrel_from_section (fixS *fixP,
 	  //base &= ~3;
 	  break;
 	default:
-	  as_bad (_("unhandled reloc in md_pcrel_from_section"));
+	  as_bad (_("unhandled reloc %s in md_pcrel_from_section"),
+		  bfd_get_reloc_code_name (fixP->fx_r_type));
 	  break;
 	}
     }
@@ -1083,18 +1091,27 @@ md_apply_fix (fixS *fixP,
 
   switch (fixP->fx_r_type)
     {
+    case BFD_RELOC_8:
+    case BFD_RELOC_16:
+    case BFD_RELOC_24:
+    case BFD_RELOC_32:
+      md_number_to_chars (fixpos, value, fixP->fx_size);
+      return;
+
     case BFD_RELOC_ARC_GOTPC32:
     case BFD_RELOC_ARC_GOTOFF:
     case BFD_RELOC_ARC_32_ME:
-      insn = value;
-      md_number_to_chars_midend (fixpos, insn, fixP->fx_size);
+      md_number_to_chars_midend (fixpos, value, fixP->fx_size);
       return;
+
     case BFD_RELOC_ARC_S25W_PCREL:
+    case BFD_RELOC_ARC_S21W_PCREL:
     case BFD_RELOC_ARC_S21H_PCREL:
     case BFD_RELOC_ARC_S25H_PCREL:
       operand = find_operand_for_reloc (fixP->fx_r_type);
       gas_assert (operand);
       break;
+
     default:
       {
 	if ((int) fixP->fx_r_type >= 0)
@@ -1285,6 +1302,13 @@ md_atof (int type,
 void
 md_operand (expressionS *expressionP ATTRIBUTE_UNUSED)
 {
+  char *p = input_line_pointer;
+  if (*p == '@')
+    {
+      input_line_pointer++;
+      expressionP->X_op = O_symbol;
+      expression (expressionP);
+    }
 }
 
 /* md_parse_option
@@ -1307,6 +1331,12 @@ int
 md_parse_option (int c,
 		 char *arg ATTRIBUTE_UNUSED)
 {
+#if 0
+  int cpu_flags = EF_ARC_CPU_GENERIC;
+#else
+  int cpu_flags;
+#endif /*FIXME*/
+
   switch (c)
     {
     case OPTION_MCPU:
@@ -1330,6 +1360,7 @@ md_parse_option (int c,
 		arc_target = cpu_types[i].flags;
 		arc_target_name = cpu_types[i].name;
 		arc_mach_type = cpu_types[i].mach;
+		cpu_flags = cpu_types[i].eflags;
 		mach_type_specified_p = 1;
 		break;
 	      }
@@ -1353,6 +1384,11 @@ md_parse_option (int c,
     default:
       return 0;
     }
+
+#if 0
+  if (cpu_flags != EF_ARC_CPU_GENERIC)
+    arc_eflag = (arc_eflag & ~EF_ARC_MACH_MSK) | cpu_flags;
+#endif /* FIXME!*/
 
   return 1;
 }
