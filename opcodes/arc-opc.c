@@ -2509,7 +2509,7 @@ const struct arc_operand arc_operands[] =
 
     /* SIMM13_A32_5_S mask = 0000011111111111 */
 #define SIMM13_A32_5_S       (SIMM25_A32_5 + 1)
-    {13, 0, 0, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED32 | ARC_OPERAND_TRUNCATE, insert_simm13_a32_5_s, extract_simm13_a32_5_s},
+    {13, 0, BFD_RELOC_ARC_S13_PCREL, ARC_OPERAND_SIGNED | ARC_OPERAND_ALIGNED32 | ARC_OPERAND_TRUNCATE | ARC_OPERAND_PCREL, insert_simm13_a32_5_s, extract_simm13_a32_5_s},
 
     /* SIMM8_A16_9_S mask = 0000000001111111 */
 #define SIMM8_A16_9_S       (SIMM13_A32_5_S + 1)
