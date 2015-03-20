@@ -38,7 +38,6 @@
 #define MAX_INSN_ARGS        5
 #define MAX_INSN_FLGS        3
 #define MAX_FLAG_NAME_LENGHT 3
-#define MAX_INSN_FIXUPS      2
 #define MAX_CONSTR_STR       20
 
 //#define DEBUG
@@ -105,6 +104,15 @@ const pseudo_typeS md_pseudo_table[] =
     { NULL, NULL, 0 }
   };
 
+/* ARC relaxation table.
+   TODO: Expand and perhaps refactor (AKA, do it the proper way). */
+const relax_typeS md_relax_table[] =
+{
+  /* bl_s -> bl */
+  { 0xfff, -0x1000, 2, 1 },
+  { 0xffffff, -0x1000000, 4, 0 },
+};
+
 const char *md_shortopts = "";
 
 enum options
@@ -127,36 +135,6 @@ size_t md_longopts_size = sizeof (md_longopts);
 /**************************************************************************/
 /* Local data and data types                                              */
 /**************************************************************************/
-/* Used since new relocation types are introduced in this
-   file (DUMMY_RELOC_LITUSE_*) */
-typedef int extended_bfd_reloc_code_real_type;
-
-struct arc_fixup
-{
-  expressionS exp;
-
-  extended_bfd_reloc_code_real_type reloc;
-
-  /* index into arc_operands */
-  unsigned int opindex;
-
-  /* PC-relative, used by internals fixups. */
-  unsigned char pcrel;
-
-  /* TRUE if this fixup is for LIMM operand */
-  bfd_boolean islong;
-};
-
-struct arc_insn
-{
-  unsigned int insn;
-  int nfixups;
-  struct arc_fixup fixups[MAX_INSN_FIXUPS];
-  long sequence;
-  long limm;
-  unsigned char short_insn; /* Boolean value: 1 if current insn is short. */
-  unsigned char has_limm;   /* Boolean value: 1 if limm field is valid. */
-};
 
 /* The cpu for which we are generating code.  */
 static unsigned arc_target = ARC_OPCODE_BASE;
@@ -1172,16 +1150,23 @@ md_apply_fix (fixS *fixP,
    Although it may not be explicit in the frag, pretend
    fr_var starts with a value.  */
 int
-md_estimate_size_before_relax (fragS *fragP ATTRIBUTE_UNUSED,
-			       segT segment ATTRIBUTE_UNUSED)
+md_estimate_size_before_relax (fragS *fragP,
+			       segT segment)
 {
-  int growth = 4;
+  int growth;
 
-  fragP->fr_var = 4;
+  /* If the label is not located within the same section, stop assembling. */
+  if ((!S_IS_DEFINED (fragP->fr_symbol)
+      || segment != S_GET_SEGMENT (fragP->fr_symbol)))
+    as_fatal (_("Label not within section, bailing out of assembling."));
+  else
+    fragP->fr_subtype = 0;
+
+  growth = md_relax_table[fragP->fr_subtype].rlx_length;
+  fragP->fr_var = growth;
   pr_debug("%s:%d: md_estimate_size_before_relax: %d\n",
 	   fragP->fr_file, fragP->fr_line, growth);
 
-  as_fatal (_("md_estimate_size_before_relax\n"));
   return growth;
 }
 
@@ -1239,16 +1224,47 @@ tc_gen_reloc (asection *section ATTRIBUTE_UNUSED,
 
    Out: Any fixS:s and constants are set up.
 */
-
 void
 md_convert_frag (bfd *abfd ATTRIBUTE_UNUSED,
 		 segT segment ATTRIBUTE_UNUSED,
-		 fragS *fragP ATTRIBUTE_UNUSED)
+		 fragS *fragP)
 {
+  const relax_typeS *table_entry;
+  char *dest;
+  unsigned opc;
+  extended_bfd_reloc_code_real_type reloc;
+
+  dest = fragP->fr_literal + fragP->fr_fix;
+  table_entry = TC_GENERIC_RELAX_TABLE + fragP->fr_subtype;
+
+  /* Use either relocation of s13 value or s25 depending on relaxation. */
+  switch (fragP->fr_subtype)
+  {
+    case 0:
+      reloc = BFD_RELOC_ARC_S13_PCREL;
+      break;
+
+    case 1:
+    default:
+      reloc = BFD_RELOC_ARC_S25W_PCREL;
+      break;
+  }
+
+  /* Create new fixup with information for relocation.
+     This being called in the open also means that relaxation of bl_s is
+     only works with symbols. */
+  fix_new_exp (fragP, fragP->fr_fix, table_entry->rlx_length,
+        &fragP->tc_frag_data.fixups[0].exp, 1, reloc);
+
+  /* Currently very much hard-coded to bl_s and bl... */
+  if (fragP->fr_subtype == 1)
+    md_number_to_chars_midend (dest, BL_OPCODE, 4);
+
+  fragP->fr_fix += table_entry->rlx_length;
+  fragP->fr_var = 0;
   pr_debug("%s:%d: md_convert_frag, subtype: %d, fix: %d, var: %d\n",
 	   fragP->fr_file, fragP->fr_line,
 	   fragP->fr_subtype, fragP->fr_fix, fragP->fr_var);
-  abort ();
 }
 
 /* We have no need to default values of symbols.
@@ -2217,6 +2233,17 @@ assemble_insn (const struct arc_opcode *opcode,
 	  << flg_operand->shift;
     }
 
+  /* Relaxable instruction? */
+  /* TODO:
+        1. Smarter way of detecting whether insn is relaxable.
+        2. Refactor to relax other operands. */
+  if (strcmp (opcode->name, "bl_s") == 0 &&
+      ntok >= 1 &&
+      tok[0].X_op == O_symbol)
+    insn->relax = 1;
+  else
+    insn->relax = 0;
+
   /* Short instruction? */
   insn->short_insn = ARC_SHORT (opcode->mask);
 
@@ -2235,41 +2262,62 @@ emit_insn (struct arc_insn *insn)
   pr_debug ("\tLong imm: 0x%lx\n", insn->limm);
 
   /* Write out the instruction.  */
-  if (insn->short_insn)
+  if (insn->relax)
     {
-      if (insn->has_limm)
-	{
-	  f = frag_more (6);
-	  md_number_to_chars (f, insn->insn, 2);
-	  md_number_to_chars_midend (f + 2, insn->limm, 4);
-	  dwarf2_emit_insn (6);
-	}
-      else
-	{
-	  f = frag_more (2);
-	  md_number_to_chars (f, insn->insn, 2);
-	  dwarf2_emit_insn (2);
-	}
+      /* TODO: refactor this to NOT be bl_s relaxation only. */
+      memcpy (&frag_now->tc_frag_data, insn, sizeof (struct arc_insn));
+
+      /* How frag_var is args are currently configured:
+	   - rs_machine_dependent, to dictate it's a relaxation frag.
+	   - 4, maximum size of instruction
+	   - 2, variable size that might grow...unused by generic relaxation.
+	   - 0, fr_subtype starting value.
+	   - *insn->fixups[0].exp.X_add_symbol, opand expression.
+	   - 0, offset but it's unused.
+	   - 0, opcode but it's unused. */
+      f = frag_var (rs_machine_dependent, 4, 2, 0,
+           insn->fixups[0].exp.X_add_symbol, 0, 0);
+      md_number_to_chars_midend (f, insn->insn, 2);
     }
   else
     {
-      if (insn->has_limm)
-	{
-	  f = frag_more (8);
-	  md_number_to_chars_midend (f, insn->insn, 4);
-	  md_number_to_chars_midend (f + 4, insn->limm, 4);
-	  dwarf2_emit_insn (8);
-	}
+      frag_now->has_code = 1;
+      if (insn->short_insn)
+        {
+          if (insn->has_limm)
+	    {
+	      f = frag_more (6);
+	      md_number_to_chars (f, insn->insn, 2);
+	      md_number_to_chars_midend (f + 2, insn->limm, 4);
+	      dwarf2_emit_insn (6);
+	    }
+          else
+	    {
+	      f = frag_more (2);
+	      md_number_to_chars (f, insn->insn, 2);
+	      dwarf2_emit_insn (2);
+	    }
+        }
       else
-	{
-	  f = frag_more (4);
-	  md_number_to_chars_midend (f, insn->insn, 4);
-	  dwarf2_emit_insn (4);
-	}
+        {
+          if (insn->has_limm)
+	    {
+	      f = frag_more (8);
+	      md_number_to_chars_midend (f, insn->insn, 4);
+	      md_number_to_chars_midend (f + 4, insn->limm, 4);
+	      dwarf2_emit_insn (8);
+	    }
+          else
+	    {
+	      f = frag_more (4);
+	      md_number_to_chars_midend (f, insn->insn, 4);
+	      dwarf2_emit_insn (4);
+	    }
+        }
     }
 
-  /* Apply the fixups in order.  */
-  for (i = 0; i < insn->nfixups; i++)
+  /* Apply the fixups in order except when insn is relaxable.  */
+  for (i = 0; i < insn->nfixups && !insn->relax; i++)
     {
       struct arc_fixup *fixup = &insn->fixups[i];
       int size, pcrel, offset = 0;

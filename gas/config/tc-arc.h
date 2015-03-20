@@ -147,3 +147,48 @@ extern void arc_handle_align (fragS* fragP);
 /* Define the NOPs (the first one is also used by generic code) */
 #define NOP_OPCODE   0x000078E0
 #define NOP_OPCODE_L 0x264A7000 /* mov 0,0 */
+
+/* Ugly but used for now to insert the BL insn for relaxation. Probably going
+   to refactor this to something smarter when the time comes. */
+#define BL_OPCODE 0x08020000
+
+#define MAX_INSN_FIXUPS      2
+
+extern const relax_typeS md_relax_table[];
+#define TC_GENERIC_RELAX_TABLE md_relax_table
+
+/* Used since new relocation types are introduced in tc-arc.c
+   file (DUMMY_RELOC_LITUSE_*) */
+typedef int extended_bfd_reloc_code_real_type;
+
+struct arc_fixup
+{
+  expressionS exp;
+
+  extended_bfd_reloc_code_real_type reloc;
+
+  /* index into arc_operands */
+  unsigned int opindex;
+
+  /* PC-relative, used by internals fixups. */
+  unsigned char pcrel;
+
+  /* TRUE if this fixup is for LIMM operand */
+  bfd_boolean islong;
+};
+
+struct arc_insn
+{
+  unsigned int insn;
+  int nfixups;
+  struct arc_fixup fixups[MAX_INSN_FIXUPS];
+  long sequence;
+  long limm;
+  unsigned char short_insn; /* Boolean value: 1 if current insn is short. */
+  unsigned char has_limm;   /* Boolean value: 1 if limm field is valid. */
+  unsigned char relax;      /* Boolean value: 1 if needs relax. */
+};
+
+/* Used within frags to pass some information to some relaxation machine
+   dependent values. */
+#define TC_FRAG_TYPE struct arc_insn
