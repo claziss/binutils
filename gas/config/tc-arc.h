@@ -32,6 +32,9 @@
 /* This macro is the BFD architecture to pass to `bfd_set_arch_mach'.  */
 #define TARGET_ARCH bfd_arch_arc
 
+/* Allow "@" to be used as label prefix character. */
+#define LEX_AT LEX_BEGIN_NAME
+
 /* `extsym - .' expressions can be emitted using PC-relative relocs */
 #define DIFF_EXPR_OK
 
@@ -65,6 +68,18 @@ extern const char *arc_target_format;
 /* This macro is the BFD target name to use when creating the output
    file.  This will normally depend upon the `OBJ_FMT' macro.  */
 #define TARGET_FORMAT          arc_target_format
+
+/* Handle labels with same name as registers prefixing it with a '@'.
+   However, I'm not sure if RESOLVE_SYMBOL_REDEFINITION was supposed to be
+   used in target specific code.
+   We use a macro because otherwise we can't use the parameters. */
+extern int is_reg_name (const char *);
+extern symbolS *label_reg_name (const char *, segT, valueT, fragS *);
+#define RESOLVE_SYMBOL_REDEFINITION(sym)                  \
+	(is_reg_name(sym_name) ?                          \
+	((sym) = label_reg_name(sym_name, now_seg,        \
+	(valueT) frag_now_fix(), frag_now))               \
+	: 0)                                              \
 
 /* `md_short_jump_size'
    `md_long_jump_size'

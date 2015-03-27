@@ -189,6 +189,14 @@ static const struct cpu_type
       { 0, 0, 0 }
     };
 
+static const char* reg_names[] =
+  {
+    "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9", "r10", "r11",
+    "r12", "r13", "r14", "r15", "r16", "r17", "r18", "r19", "r20", "r21",
+    "r22", "r23", "r24", "r25", "r26", "r27", "r28", "r29", "r30", "r31",
+    "gp", "fp", "sp", "ilink", "ilink1", "ilink2", "blink", "lp_count", "pcl"
+  };
+
 struct arc_flags
 {
   /* Name of the parsed flag*/
@@ -541,6 +549,17 @@ debug_exp (expressionS *t)
   fflush (stderr);
 }
 
+int
+is_reg_name (const char *name)
+{
+  unsigned size = sizeof (reg_names) / sizeof (*reg_names);
+  int i;
+  for (i = 0; i < size; ++i)
+      if (strncmp (name, reg_names[i], strlen (reg_names[i])) == 0)
+        return 1;
+  return 0;
+}
+
 /* Parse the arguments to an opcode. */
 static int
 tokenize_arguments (char *str,
@@ -605,7 +624,8 @@ tokenize_arguments (char *str,
 	  if (saw_arg && !saw_comma)
 	    goto err;
 
-	  ++input_line_pointer;
+	  if (!is_reg_name (input_line_pointer + 1))
+            ++input_line_pointer;
 
 	  /* Parse @label. */
 	  expression (tok);
@@ -704,6 +724,34 @@ tokenize_arguments (char *str,
     as_bad (_("missing comma or colon"));
   input_line_pointer = old_input_line_pointer;
   return -1;
+}
+
+/* Used for redefinitions of labels with register names.
+   We fix this by prefixing with a '@'. */
+symbolS *
+label_reg_name (const char *name, segT seg, valueT valu, fragS *frag)
+{
+  symbolS *s;
+  char *symbol_name;
+
+  symbol_name = xmalloc (strlen (name) + 1);
+  sprintf (symbol_name, "@%s", name);
+  s = symbol_find (symbol_name);
+
+  if (s != NULL)
+    {
+      symbol_set_frag (s, frag);
+      S_SET_VALUE (s, valu);
+      S_SET_SEGMENT (s, seg);
+    }
+  else
+    {
+      s = symbol_new (symbol_name, seg, valu, frag);
+      symbol_table_insert (s);
+    }
+
+  xfree (symbol_name);
+  return s;
 }
 
 /* Parse the flags to a structure */
@@ -1307,7 +1355,8 @@ md_operand (expressionS *expressionP ATTRIBUTE_UNUSED)
   char *p = input_line_pointer;
   if (*p == '@')
     {
-      input_line_pointer++;
+      if (!is_reg_name (input_line_pointer + 1))
+	input_line_pointer++;
       expressionP->X_op = O_symbol;
       expression (expressionP);
     }
