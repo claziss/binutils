@@ -171,6 +171,9 @@ static int mach_type_specified_p = 0;
 /* The hash table of instruction opcodes.  */
 static struct hash_control *arc_opcode_hash;
 
+/* The hash table of register symbols.  */
+static struct has_control *arc_reg_hash;
+
 /* A table of CPU names and opcode sets.  */
 static const struct cpu_type
 {
@@ -605,8 +608,6 @@ tokenize_arguments (char *str,
 	  if (saw_arg && !saw_comma)
 	    goto err;
 
-	  ++input_line_pointer;
-
 	  /* Parse @label. */
 	  expression (tok);
 	  if (*input_line_pointer != '@')
@@ -818,16 +819,35 @@ md_assemble (char *str)
   assemble_tokens (opname, tok, ntok, flags, nflg);
 }
 
-/* Callback to insert a register into the symbol table. */
+/* Callback to insert a register into the hash table. */
 
 static void
-asm_record_register (char *name,
-		     int number)
+declare_register (char *name,
+		  int number)
 {
-  /* Use symbol_create here instead of symbol_new so we don't try to
-     output registers into the object file's symbol table.  */
-  symbol_table_insert (symbol_create (name, reg_section,
-				      number, &zero_address_frag));
+  const char *err;
+  symbolS *regS = symbol_create (name, reg_section,
+				 number, &zero_address_frag);
+
+  err = hash_insert (arc_reg_hash, S_GET_NAME (regS), (void *) regS);
+  if (err)
+    as_fatal ("Inserting \"%s\" into register table failed: %s",
+	      name, err);
+}
+
+/* Construct symbols for each of the general registers.  */
+
+static void
+declare_register_set (void)
+{
+  int i;
+  for (i = 0; i < 32; ++i)
+    {
+      char name[4];
+
+      sprintf (name, "r%d", i);
+      declare_register (name, i);
+    }
 }
 
 /* Port-specific assembler initialization. This function is called
@@ -868,23 +888,21 @@ md_begin (void)
 	continue;
     }
 
-  /* Construct symbols for each of the registers.  */
-  for (i = 0; i < 32; ++i)
-    {
-      char name[4];
+  /* Register declaration.  */
+  arc_reg_hash = hash_new ();
+  if (arc_reg_hash == NULL)
+    as_fatal (_("Virtual memory exhausted"));
 
-      sprintf (name, "r%d", i);
-      asm_record_register (name, i);
-    }
-  asm_record_register ("gp", 26);
-  asm_record_register ("fp", 27);
-  asm_record_register ("sp", 28);
-  asm_record_register ("ilink", 29);
-  asm_record_register ("ilink1", 29);
-  asm_record_register ("ilink2", 30);
-  asm_record_register ("blink", 31);
-  asm_record_register ("lp_count", 60);
-  asm_record_register ("pcl", 63);
+  declare_register_set ();
+  declare_register ("gp", 26);
+  declare_register ("fp", 27);
+  declare_register ("sp", 28);
+  declare_register ("ilink", 29);
+  declare_register ("ilink1", 29);
+  declare_register ("ilink2", 30);
+  declare_register ("blink", 31);
+  declare_register ("lp_count", 60);
+  declare_register ("pcl", 63);
 }
 
 /* Write a value out to the object file, using the appropriate
@@ -1311,6 +1329,33 @@ md_operand (expressionS *expressionP ATTRIBUTE_UNUSED)
       expressionP->X_op = O_symbol;
       expression (expressionP);
     }
+}
+
+/*
+  This function is called from the function 'expression', it attempts
+  to parse special names (in our case register names).  It fills in
+  the expression with the identified register.  It returns 1 if it is
+  a register and 0 otherwise.
+*/
+
+int
+arc_parse_name (const char *name,
+		struct expressionS *e)
+{
+  struct symbol *sym;
+
+  /* This is set by the md_operand.  */
+  if (e->X_op == O_symbol)
+    return 0;
+
+  sym = hash_find (arc_reg_hash, name);
+  if (sym)
+    {
+      e->X_op = O_register;
+      e->X_add_number = S_GET_VALUE (sym);
+      return 1;
+    }
+  return 0;
 }
 
 /* md_parse_option

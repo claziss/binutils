@@ -132,7 +132,10 @@ extern long md_pcrel_from_section (struct fix *, segT);
    fixups with respect to Position Independent Code */
 #define tc_fix_adjustable(FIX)  tc_arc_fix_adjustable(FIX)
 
+/* This hook is required to parse register names as operands. */
+#define md_parse_name(name, exp, m, c) arc_parse_name (name, exp)
 
+extern int arc_parse_name (const char *, struct expressionS *);
 extern int tc_arc_fix_adjustable (struct fix *);
 extern void arc_handle_align (fragS* fragP);
 
