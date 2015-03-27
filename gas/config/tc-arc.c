@@ -961,8 +961,6 @@ md_pcrel_from_section (fixS *fixP,
 	{
 	case BFD_RELOC_ARC_S21H_PCREL:
 	case BFD_RELOC_ARC_S25H_PCREL:
-	  base &= ~1;
-	  break;
 	case BFD_RELOC_ARC_S13_PCREL:
 	case BFD_RELOC_ARC_S21W_PCREL:
 	case BFD_RELOC_ARC_S25W_PCREL:
