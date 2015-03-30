@@ -1927,6 +1927,17 @@ find_opcode_match (const struct arc_opcode *first_opcode,
 		  break;
 
 		default:
+		  /* Relocs requiring long immediate. FIXME! make it
+		     generic and move it to a function.  */
+		  switch (tok[tokidx].X_md)
+		    {
+		    case O_gotoff:
+		    case O_gotpc:
+		      if (!(operand->flags & ARC_OPERAND_LIMM))
+			goto match_failed;
+		    default:
+		      break;
+		    }
 		  if (operand->default_reloc == 0)
 		    goto match_failed; /* The operand needs relocation. */
 		  break;
@@ -2127,45 +2138,42 @@ assemble_insn (const struct arc_opcode *opcode,
 
 	default:
 	  /* This operand needs a relocation. */
-	  if (reloc == BFD_RELOC_UNUSED)
+	  switch (t->X_md)
 	    {
-	      switch (t->X_md)
-		{
-		case O_gotoff:
-		case O_gotpc:
-		case O_plt:
-		  /*FIXME! PLT reloc works for both bl/bl<cc>
-		    instructions. Maybe a good idea is to separate
-		    them. */
-		  if (GOT_symbol == NULL)
-		    GOT_symbol = symbol_find_or_make (GLOBAL_OFFSET_TABLE_NAME);
-		  /* Fall-through */
+	    case O_gotoff:
+	    case O_gotpc:
+	    case O_plt:
+	      /*FIXME! PLT reloc works for both bl/bl<cc>
+		instructions. Maybe a good idea is to separate
+		them. */
+	      if (GOT_symbol == NULL)
+		GOT_symbol = symbol_find_or_make (GLOBAL_OFFSET_TABLE_NAME);
+	      /* Fall-through */
 
-		case O_pcl:
-		  reloc = ARC_RELOC_TABLE(t->X_md)->reloc;
-		  break;
-		case O_sda:
-		  reloc = find_reloc ("sda", opcode->name,
-				      pflags, nflg,
-				      operand->default_reloc);
-		  break;
-		case O_tlsgd:
-		case O_tlsie:
-		  if (GOT_symbol == NULL)
-		    GOT_symbol = symbol_find_or_make (GLOBAL_OFFSET_TABLE_NAME);
-		  /* Fall-through */
+	    case O_pcl:
+	      reloc = ARC_RELOC_TABLE(t->X_md)->reloc;
+	      break;
+	    case O_sda:
+	      reloc = find_reloc ("sda", opcode->name,
+				  pflags, nflg,
+				  operand->default_reloc);
+	      break;
+	    case O_tlsgd:
+	    case O_tlsie:
+	      if (GOT_symbol == NULL)
+		GOT_symbol = symbol_find_or_make (GLOBAL_OFFSET_TABLE_NAME);
+	      /* Fall-through */
 
-		case O_tpoff9:
-		case O_tpoff:
-		case O_dtpoff9:
-		case O_dtpoff:
-		  as_bad (_("TLS relocs are not supported yet"));
-		  break;
-		default:
-		  /* Just consider the default relocation. */
-		  reloc = operand->default_reloc;
-		  break;
-		}
+	    case O_tpoff9:
+	    case O_tpoff:
+	    case O_dtpoff9:
+	    case O_dtpoff:
+	      as_bad (_("TLS relocs are not supported yet"));
+	      break;
+	    default:
+	      /* Just consider the default relocation. */
+	      reloc = operand->default_reloc;
+	      break;
 	    }
 
 	  //gas_assert (reloc_operand == NULL);
