@@ -269,6 +269,7 @@ static const struct arc_opcode *find_special_case (const char *opname,
 static const struct arc_opcode *find_special_case_pseudo (const char *opname,
 							  int *ntok, expressionS *tok, int *nflgs, struct arc_flags *pflags);
 static int get_arc_exp_reloc_type (int, int, expressionS *);
+static char *convert_relaxable_insn (char *, const expressionS *, int, struct arc_flags *, int);
 
 /**************************************************************************/
 /* Functions implementation                                               */
@@ -792,8 +793,118 @@ md_assemble (char *str)
       return;
     }
 
+  opname = convert_relaxable_insn (opname, tok, ntok, flags, nflg);
+
   /* Finish it off. */
   assemble_tokens (opname, tok, ntok, flags, nflg);
+}
+
+/* Checks if operands are in line with relaxable insn. */
+static int
+relaxable_operand (const struct arc_relaxable_ins *ins,
+		    const expressionS *tok,
+		    int ntok)
+{
+  enum rlx_operand_type *operand = &ins->operands[0];
+  unsigned i = 0;
+
+  while (*operand != EMPTY)
+    {
+      if (i != 0 && i >= ntok)
+        return 0;
+
+      switch (tok[i].X_op)
+	{
+	case O_constant:
+	case O_symbol:
+	  if (*operand != IMMEDIATE)
+	    return 0;
+	  break;
+
+	case O_register:
+	  if (*operand != REGISTER)
+	    return 0;
+	  break;
+
+	case O_bracket:
+	  if (*operand != BRACKET)
+	    return 0;
+	  break;
+
+	default:
+	  /* Don't understand, bail out. */
+	  return 0;
+	  break;
+	}
+
+      ++i;
+      operand = &ins->operands[i];
+    }
+
+  return (i == ntok);
+}
+
+/* Checks if flags are in line with relaxable insn. */
+static int
+relaxable_flag (const struct arc_relaxable_ins *ins,
+		struct arc_flags *pflags,
+		int nflgs)
+{
+  char *flag = ins->flags[0];
+  unsigned i = 0, j;
+
+  while (flag != NULL)
+    {
+      if (i != 0 && i >= nflgs)
+	return 0;
+
+      for (j = 0; j < nflgs; ++j)
+	  if (strcmp (flag, pflags[j].name) == 0)
+	    break;
+
+      if (j == nflgs)
+	return 0;
+
+      ++i;
+      flag = ins->flags[i];
+    }
+
+  return (i == nflgs);
+}
+
+/* Used to check if opname/operand/flag combination results in
+   a relaxable instruction. Returns either smallest version of
+   relaxable instruction or the old opname. */
+static char *
+convert_relaxable_insn (char *opname,
+		const expressionS *tok,
+		int ntok,
+		struct arc_flags *pflags,
+		int nflgs)
+{
+  char *newopname;
+  const struct arc_relaxable_ins *ins;
+  size_t opnamelen;
+  unsigned i;
+
+  for (i = 0; i < arc_num_relaxable_ins; ++i)
+    {
+      ins = &arc_relaxable_insns[i];
+
+      /* Check if opname and mnemonic are the same. */
+      if (strcmp (ins->mnemonic_r, opname) == 0 &&
+	  relaxable_operand (ins, tok, ntok) &&
+	  relaxable_flag (ins, pflags, nflgs))
+	{
+	  xfree (opname);
+	  opnamelen = strlen (ins->mnemonic_alt);
+	  newopname = xmalloc (opnamelen + 1);
+	  memcpy (newopname, ins->mnemonic_alt, opnamelen + 1);
+	  return newopname;
+	}
+    }
+
+  return opname;
 }
 
 /* Callback to insert a register into the symbol table. */

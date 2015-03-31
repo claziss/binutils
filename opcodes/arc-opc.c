@@ -2695,3 +2695,10 @@ const struct arc_pseudo_insn arc_pseudo_insns[] =
   };
 
 const unsigned arc_num_pseudo_insn = sizeof (arc_pseudo_insns) / sizeof (*arc_pseudo_insns);
+
+const struct arc_relaxable_ins arc_relaxable_insns[] =
+  {
+    { "bl", { IMMEDIATE }, { NULL }, "bl_s" },
+  };
+
+const unsigned arc_num_relaxable_ins = sizeof (arc_relaxable_insns) / sizeof (*arc_relaxable_insns);
