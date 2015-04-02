@@ -148,14 +148,64 @@ extern void arc_handle_align (fragS* fragP);
 #define NOP_OPCODE   0x000078E0
 #define NOP_OPCODE_L 0x264A7000 /* mov 0,0 */
 
-/* Ugly but used for now to insert the BL insn for relaxation. Probably going
+/* Ugly but used for now to insert the opcodes for relaxation. Probably going
    to refactor this to something smarter when the time comes. */
 #define BL_OPCODE 0x08020000
+#define B_OPCODE 0x00010000
 
 #define MAX_INSN_FIXUPS      2
 
 extern const relax_typeS md_relax_table[];
 #define TC_GENERIC_RELAX_TABLE md_relax_table
+
+/* Enum used to enumerate the relaxable ins operands. */
+enum rlx_operand_type
+{
+  EMPTY = 0,
+  REGISTER,
+  IMMEDIATE,
+  BRACKET
+};
+
+enum arc_rlx_types
+{
+  ARC_RLX_NONE = 0,
+  ARC_RLX_BL_S,
+  ARC_RLX_BL,
+  ARC_RLX_J_12,
+  ARC_RLX_J_32,
+  ARC_RLX_Jcc_6,
+  ARC_RLX_Jcc_32,
+  ARC_RLX_B_S,
+  ARC_RLX_B,
+  ARC_RLX_Bcc_7,
+  ARC_RLX_Bcc_10,
+  ARC_RLX_Bcc_21,
+};
+
+/* Structure for relaxable instruction that have to be swapped with a smaller
+   alternative instruction. */
+struct arc_relaxable_ins
+{
+  /* Mnemonic that should be checked. */
+  const char *mnemonic_r;
+
+  /* Operands that should be checked.
+     Indexes of operands from operand array. */
+  enum rlx_operand_type operands[6];
+
+  /* Flags that should be checked. Indexes of flags of flag array. */
+  char *flags[4];
+
+  /* Mnemonic (smaller) alternative to be used later for relaxation. */
+  const char *mnemonic_alt;
+
+  /* Base subtype index used. */
+  enum arc_rlx_types subtype;
+};
+
+extern const struct arc_relaxable_ins arc_relaxable_insns[];
+extern const unsigned arc_num_relaxable_ins;
 
 /* Used since new relocation types are introduced in tc-arc.c
    file (DUMMY_RELOC_LITUSE_*) */

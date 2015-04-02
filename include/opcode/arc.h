@@ -332,34 +332,4 @@ struct arc_pseudo_insn
 extern const struct arc_pseudo_insn arc_pseudo_insns[];
 extern const unsigned arc_num_pseudo_insn;
 
-/* Enum used to enumerate the relaxable ins operands. */
-enum rlx_operand_type
-{
-  EMPTY = 0,
-  REGISTER,
-  IMMEDIATE,
-  BRACKET
-};
-
-/* Structure for relaxable instruction that have to be swapped with a smaller
-   alternative instruction. */
-struct arc_relaxable_ins
-{
-  /* Mnemonic that should be checked. */
-  const char *mnemonic_r;
-
-  /* Operands that should be checked.
-     Indexes of operands from operand array. */
-  enum rlx_operand_type operands[6];
-
-  /* Flags that should be checked. Indexes of flags of flag array. */
-  char *flags[4];
-
-  /* Mnemonic (smaller) alternative to be used later for relaxation. */
-  const char *mnemonic_alt;
-};
-
-extern const struct arc_relaxable_ins arc_relaxable_insns[];
-extern const unsigned arc_num_relaxable_ins;
-
 #endif /* OPCODE_ARC_H */

@@ -39,6 +39,7 @@
 #define MAX_INSN_FLGS        3
 #define MAX_FLAG_NAME_LENGHT 3
 #define MAX_CONSTR_STR       20
+#define FRAG_MAX_GROWTH      8
 
 //#define DEBUG
 
@@ -54,6 +55,11 @@
 
 #define regno(x)		((x) & 0x3F)
 #define is_ir_num(x)		(((x) & ~0x3F) == 0)
+#define RELAX_TABLE_ENTRY(BITS, ISSIGNED, SIZE, NEXT)           \
+{ (ISSIGNED) ? ((1 << ((BITS) - 1)) - 1) : ((1 << (BITS)) - 1), \
+  (ISSIGNED) ? -(1 << ((BITS) - 1)) : 0,                        \
+  (SIZE),                                                       \
+  (NEXT) }                                                      \
 
 /**************************************************************************/
 /* Generic assembler global variables which must be defined by all        */
@@ -104,13 +110,40 @@ const pseudo_typeS md_pseudo_table[] =
     { NULL, NULL, 0 }
   };
 
-/* ARC relaxation table.
-   TODO: Expand and perhaps refactor (AKA, do it the proper way). */
+/* ARC relaxation table. */
 const relax_typeS md_relax_table[] =
 {
-  /* bl_s -> bl */
-  { 0xfff, -0x1000, 2, 1 },
-  { 0xffffff, -0x1000000, 4, 0 },
+  /* Fake entry. */
+  {0, 0, 0, 0},
+
+  /* bl_s s13 -> bl s25 */
+  RELAX_TABLE_ENTRY(13, 1, 2, ARC_RLX_BL),
+  RELAX_TABLE_ENTRY(25, 1, 4, ARC_RLX_NONE),
+
+  /* J s12 -> J limm */
+  /* We use the range 0x7ff ~ 0 because it doesn't make any sense to have
+     a negative number as jump value. I'm sure there are people out there
+     that do pretty spiffy things with it but then we'll just use the
+     limm version. */
+  RELAX_TABLE_ENTRY(11, 0, 4, ARC_RLX_J_32),
+  //RELAX_TABLE_ENTRY(32, 1, 8, ARC_RLX_NONE),
+  { 0x7fffffff, -0x80000000, 8, ARC_RLX_NONE },
+
+  /* Jcc u6 -> Jcc limm */
+  RELAX_TABLE_ENTRY(6, 0, 4, ARC_RLX_Jcc_32),
+  //RELAX_TABLE_ENTRY(32, 0, 8, ARC_RLX_NONE),
+  { 0xffffffff, 0, 8, ARC_RLX_NONE },
+
+  /* B_S s10 -> B S25 */
+  RELAX_TABLE_ENTRY(10, 1, 2, ARC_RLX_B),
+  RELAX_TABLE_ENTRY(25, 1, 4, ARC_RLX_NONE),
+
+  /* Bcc_S s7 -> Bcc s21 */
+  RELAX_TABLE_ENTRY(7, 1, 2, ARC_RLX_Bcc_21),
+
+  /* Bcc_S s10 -> Bcc s21 */
+  RELAX_TABLE_ENTRY(10, 1, 2, ARC_RLX_Bcc_21),
+  RELAX_TABLE_ENTRY(21, 1, 4, ARC_RLX_NONE),
 };
 
 const char *md_shortopts = "";
@@ -175,6 +208,15 @@ struct arc_flags
   /* The code of the parsed flag. Valid when is not zero. */
   unsigned char code;
 };
+
+const struct arc_relaxable_ins arc_relaxable_insns[] =
+  {
+    { "bl", { IMMEDIATE }, { NULL }, "bl_s", ARC_RLX_BL_S },
+    //{ "j", { IMMEDIATE }, { NULL }, "j", ARC_RLX_J_12 },
+    { "b", { IMMEDIATE }, { NULL }, "b_s", ARC_RLX_B_S },
+  };
+
+const unsigned arc_num_relaxable_ins = sizeof (arc_relaxable_insns) / sizeof (*arc_relaxable_insns);
 
 /* Used by the arc_reloc_op table. Order is important. */
 #define O_gotoff  O_md1     /* @gotoff relocation. */
@@ -1267,11 +1309,9 @@ md_estimate_size_before_relax (fragS *fragP,
   int growth;
 
   /* If the label is not located within the same section, stop assembling. */
-  if ((!S_IS_DEFINED (fragP->fr_symbol)
-      || segment != S_GET_SEGMENT (fragP->fr_symbol)))
+  if (!S_IS_DEFINED (fragP->fr_symbol)
+      || segment != S_GET_SEGMENT (fragP->fr_symbol))
     as_fatal (_("Label not within section, bailing out of assembling."));
-  else
-    fragP->fr_subtype = 0;
 
   growth = md_relax_table[fragP->fr_subtype].rlx_length;
   fragP->fr_var = growth;
@@ -1342,34 +1382,49 @@ md_convert_frag (bfd *abfd ATTRIBUTE_UNUSED,
 {
   const relax_typeS *table_entry;
   char *dest;
+  struct arc_insn insn;
   unsigned opc;
-  extended_bfd_reloc_code_real_type reloc;
 
   dest = fragP->fr_literal + fragP->fr_fix;
   table_entry = TC_GENERIC_RELAX_TABLE + fragP->fr_subtype;
 
-  /* Use either relocation of s13 value or s25 depending on relaxation. */
+
+#define CASE_WITH_RELOC(INSN, RELOC)                          \
+do {                                                          \
+  opc = INSN;                                                 \
+  fix_new_exp (fragP, fragP->fr_fix, table_entry->rlx_length, \
+          &fragP->tc_frag_data.fixups[0].exp, 1, RELOC);      \
+} while(0)                                                    \
+
+  /* I feel like there's a better way to do all this...for now,
+     we'll make do with this switch case. */
   switch (fragP->fr_subtype)
-  {
-    case 0:
-      reloc = BFD_RELOC_ARC_S13_PCREL;
+    {
+    case ARC_RLX_BL_S:
+      CASE_WITH_RELOC(fragP->tc_frag_data.insn, BFD_RELOC_ARC_S13_PCREL);
       break;
 
-    case 1:
+    case ARC_RLX_BL:
+      CASE_WITH_RELOC(BL_OPCODE, BFD_RELOC_ARC_S25W_PCREL);
+      break;
+
+    case ARC_RLX_B_S:
+      /* -43 is the default reloc for this operand...we SHOULD be getting this
+	 default reloc from the arc_operand array as for every other case in
+	 this switch. Same with the willy-nilly insn insertion. */
+      CASE_WITH_RELOC(fragP->tc_frag_data.insn, -43);
+      break;
+
+    case ARC_RLX_B:
+      CASE_WITH_RELOC(B_OPCODE, BFD_RELOC_ARC_S25H_PCREL);
+      break;
+
     default:
-      reloc = BFD_RELOC_ARC_S25W_PCREL;
       break;
-  }
+    }
 
-  /* Create new fixup with information for relocation.
-     This being called in the open also means that relaxation of bl_s is
-     only works with symbols. */
-  fix_new_exp (fragP, fragP->fr_fix, table_entry->rlx_length,
-        &fragP->tc_frag_data.fixups[0].exp, 1, reloc);
-
-  /* Currently very much hard-coded to bl_s and bl... */
-  if (fragP->fr_subtype == 1)
-    md_number_to_chars_midend (dest, BL_OPCODE, 4);
+  /* Currently very hard-coded... */
+  md_number_to_chars_midend (dest, opc, table_entry->rlx_length);
 
   fragP->fr_fix += table_entry->rlx_length;
   fragP->fr_var = 0;
@@ -2348,11 +2403,19 @@ assemble_insn (const struct arc_opcode *opcode,
   /* TODO:
         1. Smarter way of detecting whether insn is relaxable.
         2. Refactor to relax other operands. */
-  if (strcmp (opcode->name, "bl_s") == 0 &&
-      ntok >= 1 &&
-      tok[0].X_op == O_symbol)
-    insn->relax = 1;
-  else
+
+  for (i = 0; i < arc_num_relaxable_ins; ++i)
+    {
+      if (strcmp (opcode->name, arc_relaxable_insns[i].mnemonic_alt) == 0 &&
+	  tok[0].X_op == O_symbol)
+	{
+	  insn->relax = 1;
+	  frag_now->fr_subtype = arc_relaxable_insns[i].subtype;
+	  break;
+	}
+    }
+
+  if (i == arc_num_relaxable_ins)
     insn->relax = 0;
 
   /* Short instruction? */
@@ -2380,15 +2443,14 @@ emit_insn (struct arc_insn *insn)
 
       /* How frag_var is args are currently configured:
 	   - rs_machine_dependent, to dictate it's a relaxation frag.
-	   - 4, maximum size of instruction
-	   - 2, variable size that might grow...unused by generic relaxation.
-	   - 0, fr_subtype starting value.
+	   - FRAG_MAX_GROWTH, maximum size of instruction
+	   - 0, variable size that might grow...unused by generic relaxation.
+	   - frag_now->fr_subtype, fr_subtype starting value, set previously.
 	   - *insn->fixups[0].exp.X_add_symbol, opand expression.
 	   - 0, offset but it's unused.
 	   - 0, opcode but it's unused. */
-      f = frag_var (rs_machine_dependent, 4, 2, 0,
-           insn->fixups[0].exp.X_add_symbol, 0, 0);
-      md_number_to_chars_midend (f, insn->insn, 2);
+      f = frag_var (rs_machine_dependent, FRAG_MAX_GROWTH, 0,
+	   frag_now->fr_subtype, insn->fixups[0].exp.X_add_symbol, 0, 0);
     }
   else
     {
