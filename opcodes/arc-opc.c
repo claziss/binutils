@@ -108,9 +108,7 @@ insert_Ybit (unsigned insn,
 	     int value,
 	     const char **errmsg)
 {
-  if (!value)
-    *errmsg = _("cannot resolve this fixup.");
-  else if (value > 0)
+  if (value > 0)
     insn |= 0x08;
 
   return insn;
@@ -123,9 +121,7 @@ insert_NYbit (unsigned insn,
 	     int value,
 	     const char **errmsg)
 {
-  if (!value)
-    *errmsg = _("cannot resolve this fixup.");
-  else if (value < 0)
+  if (value < 0)
     insn |= 0x08;
 
   return insn;
