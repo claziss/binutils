@@ -148,12 +148,9 @@ extern void arc_handle_align (fragS* fragP);
 #define NOP_OPCODE   0x000078E0
 #define NOP_OPCODE_L 0x264A7000 /* mov 0,0 */
 
-/* Ugly but used for now to insert the opcodes for relaxation. Probably going
-   to refactor this to something smarter when the time comes. */
-#define BL_OPCODE 0x08020000
-#define B_OPCODE 0x00010000
-
-#define MAX_INSN_FIXUPS      2
+#define MAX_INSN_ARGS        5
+#define MAX_INSN_FLGS        3
+#define MAX_FLAG_NAME_LENGHT 3
 
 extern const relax_typeS md_relax_table[];
 #define TC_GENERIC_RELAX_TABLE md_relax_table
@@ -172,15 +169,14 @@ enum arc_rlx_types
   ARC_RLX_NONE = 0,
   ARC_RLX_BL_S,
   ARC_RLX_BL,
-  ARC_RLX_J_12,
-  ARC_RLX_J_32,
-  ARC_RLX_Jcc_6,
-  ARC_RLX_Jcc_32,
   ARC_RLX_B_S,
   ARC_RLX_B,
-  ARC_RLX_Bcc_7,
-  ARC_RLX_Bcc_10,
-  ARC_RLX_Bcc_21,
+  //ARC_RLX_LD_U7,
+  ARC_RLX_LD_S9,
+  ARC_RLX_LD_LIMM,
+  //ARC_RLX_ADD_U3,
+  ARC_RLX_ADD_U6,
+  ARC_RLX_ADD_LIMM,
 };
 
 /* Structure for relaxable instruction that have to be swapped with a smaller
@@ -194,11 +190,14 @@ struct arc_relaxable_ins
      Indexes of operands from operand array. */
   enum rlx_operand_type operands[6];
 
-  /* Flags that should be checked. Indexes of flags of flag array. */
-  char *flags[4];
+  /* Flags that should be checked. Index to flag classes. */
+  unsigned flag_classes[5];
 
   /* Mnemonic (smaller) alternative to be used later for relaxation. */
   const char *mnemonic_alt;
+
+  /* Index of operand that generic relaxation has to check. */
+  unsigned opcheckidx;
 
   /* Base subtype index used. */
   enum arc_rlx_types subtype;
@@ -207,38 +206,25 @@ struct arc_relaxable_ins
 extern const struct arc_relaxable_ins arc_relaxable_insns[];
 extern const unsigned arc_num_relaxable_ins;
 
-/* Used since new relocation types are introduced in tc-arc.c
-   file (DUMMY_RELOC_LITUSE_*) */
-typedef int extended_bfd_reloc_code_real_type;
-
-struct arc_fixup
+struct arc_flags
 {
-  expressionS exp;
+  /* Name of the parsed flag*/
+  char name[MAX_FLAG_NAME_LENGHT];
 
-  extended_bfd_reloc_code_real_type reloc;
-
-  /* index into arc_operands */
-  unsigned int opindex;
-
-  /* PC-relative, used by internals fixups. */
-  unsigned char pcrel;
-
-  /* TRUE if this fixup is for LIMM operand */
-  bfd_boolean islong;
+  /* The code of the parsed flag. Valid when is not zero. */
+  unsigned char code;
 };
 
-struct arc_insn
+/* Used to construct instructions at relaxation stage. */
+struct arc_relax_type
 {
-  unsigned int insn;
-  int nfixups;
-  struct arc_fixup fixups[MAX_INSN_FIXUPS];
-  long sequence;
-  long limm;
-  unsigned char short_insn; /* Boolean value: 1 if current insn is short. */
-  unsigned char has_limm;   /* Boolean value: 1 if limm field is valid. */
-  unsigned char relax;      /* Boolean value: 1 if needs relax. */
+  unsigned char pcrel;
+  expressionS tok[MAX_INSN_ARGS];
+  int ntok;
+  struct arc_flags pflags[MAX_INSN_FLGS];
+  int nflg;
 };
 
 /* Used within frags to pass some information to some relaxation machine
    dependent values. */
-#define TC_FRAG_TYPE struct arc_insn
+#define TC_FRAG_TYPE struct arc_relax_type

@@ -2439,7 +2439,7 @@ const struct arc_operand arc_operands[] =
 
     /* UIMM6_20 mask = 00000000000000000000111111000000 */
 #define UIMM6_20       (FKT_NT + 1)
-    {6, 0, 0, ARC_OPERAND_UNSIGNED, insert_uimm6_20, extract_uimm6_20},
+    {6, 0, -UIMM6_20, ARC_OPERAND_UNSIGNED, insert_uimm6_20, extract_uimm6_20},
 
     /* SIMM12_20 mask = 00000000000000000000111111222222 */
 #define SIMM12_20       (UIMM6_20 + 1)
@@ -2695,3 +2695,20 @@ const struct arc_pseudo_insn arc_pseudo_insns[] =
   };
 
 const unsigned arc_num_pseudo_insn = sizeof (arc_pseudo_insns) / sizeof (*arc_pseudo_insns);
+
+const struct arc_opcode arc_relax_opcodes[] =
+  {
+    { NULL, 0x0, 0x0, 0x0, { }, { 0 } },
+    { "bl_s", 0x0000F800, 0x0000F800, ARC_OPCODE_ARC600 | ARC_OPCODE_ARC700 | ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS, { SIMM13_A32_5_S }, { 0 } },
+    { "bl", 0x08020000, 0xF8030000, ARC_OPCODE_ARC600 | ARC_OPCODE_ARC700 | ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS, { SIMM25_A32_5 }, { C_D }},
+    { "b_s", 0x0000F000, 0x0000FE00, ARC_OPCODE_ARC600 | ARC_OPCODE_ARC700 | ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS, { SIMM10_A16_7_S }, { 0 }},
+    { "b", 0x00010000, 0xF8010000, ARC_OPCODE_ARC600 | ARC_OPCODE_ARC700 | ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS, { SIMM25_A16_5 }, { C_D }},
+    //{ "ld_s", 0x00008000, 0x0000F800, ARC_OPCODE_ARC600 | ARC_OPCODE_ARC700 | ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS, { RC_S, BRAKET, RB_S, UIMM7_A32_11_S, BRAKETdup }, { 0 }},
+    { "ld", 0x10000000, 0xF8000000, ARC_OPCODE_ARC600 | ARC_OPCODE_ARC700 | ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS, { RA, BRAKET, RB, SIMM9_8, BRAKETdup }, { C_DI20, C_AA21, C_X25, C_ZZ23 }},
+    { "ld", 0x20300F80, 0xF8380FC0, ARC_OPCODE_ARC600 | ARC_OPCODE_ARC700 | ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS, { RA, BRAKET, RB, LIMM, BRAKETdup }, { C_DI16, C_AA8, C_X15, C_ZZ13 }},
+    //{ "add_s", 0x00006800, 0x0000F818, ARC_OPCODE_ARC600 | ARC_OPCODE_ARC700 | ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS, { RC_S, RB_S, UIMM3_13_S }, { 0 }},
+    { "add", 0x20400000, 0xF8FF0000, ARC_OPCODE_ARC600 | ARC_OPCODE_ARC700 | ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS, { RA, RB, UIMM6_20 }, { C_F }},
+    { "add", 0x20000F80, 0xF8FF0FC0, ARC_OPCODE_ARC600 | ARC_OPCODE_ARC700 | ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS, { RA, RB, LIMM }, { C_F }},
+  };
+
+const unsigned arc_num_relax_opcodes = sizeof (arc_relax_opcodes) / sizeof (*arc_relax_opcodes);
