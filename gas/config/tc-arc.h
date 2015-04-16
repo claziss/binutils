@@ -172,15 +172,8 @@ enum arc_rlx_types
   ARC_RLX_NONE = 0,
   ARC_RLX_BL_S,
   ARC_RLX_BL,
-  ARC_RLX_J_12,
-  ARC_RLX_J_32,
-  ARC_RLX_Jcc_6,
-  ARC_RLX_Jcc_32,
   ARC_RLX_B_S,
   ARC_RLX_B,
-  ARC_RLX_Bcc_7,
-  ARC_RLX_Bcc_10,
-  ARC_RLX_Bcc_21,
 };
 
 /* Structure for relaxable instruction that have to be swapped with a smaller
@@ -194,7 +187,7 @@ struct arc_relaxable_ins
      Indexes of operands from operand array. */
   enum rlx_operand_type operands[6];
 
-  /* Flags that should be checked. Indexes of flags of flag array. */
+  /* Flags that should be checked. */
   char *flags[4];
 
   /* Mnemonic (smaller) alternative to be used later for relaxation. */

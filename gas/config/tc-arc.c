@@ -120,30 +120,9 @@ const relax_typeS md_relax_table[] =
   RELAX_TABLE_ENTRY(13, 1, 2, ARC_RLX_BL),
   RELAX_TABLE_ENTRY(25, 1, 4, ARC_RLX_NONE),
 
-  /* J s12 -> J limm */
-  /* We use the range 0x7ff ~ 0 because it doesn't make any sense to have
-     a negative number as jump value. I'm sure there are people out there
-     that do pretty spiffy things with it but then we'll just use the
-     limm version. */
-  RELAX_TABLE_ENTRY(11, 0, 4, ARC_RLX_J_32),
-  //RELAX_TABLE_ENTRY(32, 1, 8, ARC_RLX_NONE),
-  { 0x7fffffff, -0x80000000, 8, ARC_RLX_NONE },
-
-  /* Jcc u6 -> Jcc limm */
-  RELAX_TABLE_ENTRY(6, 0, 4, ARC_RLX_Jcc_32),
-  //RELAX_TABLE_ENTRY(32, 0, 8, ARC_RLX_NONE),
-  { 0xffffffff, 0, 8, ARC_RLX_NONE },
-
-  /* B_S s10 -> B S25 */
+  /* b_s s10 -> b S25 */
   RELAX_TABLE_ENTRY(10, 1, 2, ARC_RLX_B),
   RELAX_TABLE_ENTRY(25, 1, 4, ARC_RLX_NONE),
-
-  /* Bcc_S s7 -> Bcc s21 */
-  RELAX_TABLE_ENTRY(7, 1, 2, ARC_RLX_Bcc_21),
-
-  /* Bcc_S s10 -> Bcc s21 */
-  RELAX_TABLE_ENTRY(10, 1, 2, ARC_RLX_Bcc_21),
-  RELAX_TABLE_ENTRY(21, 1, 4, ARC_RLX_NONE),
 };
 
 const char *md_shortopts = "";
@@ -212,7 +191,6 @@ struct arc_flags
 const struct arc_relaxable_ins arc_relaxable_insns[] =
   {
     { "bl", { IMMEDIATE }, { NULL }, "bl_s", ARC_RLX_BL_S },
-    //{ "j", { IMMEDIATE }, { NULL }, "j", ARC_RLX_J_12 },
     { "b", { IMMEDIATE }, { NULL }, "b_s", ARC_RLX_B_S },
   };
 
@@ -1307,11 +1285,16 @@ md_estimate_size_before_relax (fragS *fragP,
 			       segT segment)
 {
   int growth;
+  int size_array = sizeof (md_relax_table) / sizeof (md_relax_table[0]);
 
-  /* If the label is not located within the same section, stop assembling. */
+  /* If the label is not located within the same section, use the maximum. */
   if (!S_IS_DEFINED (fragP->fr_symbol)
       || segment != S_GET_SEGMENT (fragP->fr_symbol))
-    as_fatal (_("Label not within section, bailing out of assembling."));
+    {
+      if (!(fragP->fr_subtype == ARC_RLX_BL ||
+	  fragP->fr_subtype == ARC_RLX_B))
+	fragP->fr_subtype++;
+    }
 
   growth = md_relax_table[fragP->fr_subtype].rlx_length;
   fragP->fr_var = growth;
@@ -1396,8 +1379,6 @@ do {                                                          \
           &fragP->tc_frag_data.fixups[0].exp, 1, RELOC);      \
 } while(0)                                                    \
 
-  /* I feel like there's a better way to do all this...for now,
-     we'll make do with this switch case. */
   switch (fragP->fr_subtype)
     {
     case ARC_RLX_BL_S:
@@ -1409,9 +1390,7 @@ do {                                                          \
       break;
 
     case ARC_RLX_B_S:
-      /* -43 is the default reloc for this operand...we SHOULD be getting this
-	 default reloc from the arc_operand array as for every other case in
-	 this switch. Same with the willy-nilly insn insertion. */
+      /* -43 is the default reloc for this operand... */
       CASE_WITH_RELOC(fragP->tc_frag_data.insn, -43);
       break;
 
@@ -1423,7 +1402,6 @@ do {                                                          \
       break;
     }
 
-  /* Currently very hard-coded... */
   md_number_to_chars_midend (dest, opc, table_entry->rlx_length);
 
   fragP->fr_fix += table_entry->rlx_length;
@@ -2400,10 +2378,6 @@ assemble_insn (const struct arc_opcode *opcode,
     }
 
   /* Relaxable instruction? */
-  /* TODO:
-        1. Smarter way of detecting whether insn is relaxable.
-        2. Refactor to relax other operands. */
-
   for (i = 0; i < arc_num_relaxable_ins; ++i)
     {
       if (strcmp (opcode->name, arc_relaxable_insns[i].mnemonic_alt) == 0 &&
@@ -2438,7 +2412,6 @@ emit_insn (struct arc_insn *insn)
   /* Write out the instruction.  */
   if (insn->relax)
     {
-      /* TODO: refactor this to NOT be bl_s relaxation only. */
       memcpy (&frag_now->tc_frag_data, insn, sizeof (struct arc_insn));
 
       /* How frag_var is args are currently configured:
