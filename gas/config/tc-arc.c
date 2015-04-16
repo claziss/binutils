@@ -161,6 +161,9 @@ static int mach_type_specified_p = 0;
 /* The hash table of instruction opcodes.  */
 static struct hash_control *arc_opcode_hash;
 
+/* The hash table of register symbols.  */
+static struct has_control *arc_reg_hash;
+
 /* A table of CPU names and opcode sets.  */
 static const struct cpu_type
 {
@@ -604,8 +607,6 @@ tokenize_arguments (char *str,
 	  if (saw_arg && !saw_comma)
 	    goto err;
 
-	  ++input_line_pointer;
-
 	  /* Parse @label. */
 	  expression (tok);
 	  if (*input_line_pointer != '@')
@@ -927,16 +928,35 @@ convert_relaxable_insn (char *opname,
   return opname;
 }
 
-/* Callback to insert a register into the symbol table. */
+/* Callback to insert a register into the hash table. */
 
 static void
-asm_record_register (char *name,
-		     int number)
+declare_register (char *name,
+		  int number)
 {
-  /* Use symbol_create here instead of symbol_new so we don't try to
-     output registers into the object file's symbol table.  */
-  symbol_table_insert (symbol_create (name, reg_section,
-				      number, &zero_address_frag));
+  const char *err;
+  symbolS *regS = symbol_create (name, reg_section,
+				 number, &zero_address_frag);
+
+  err = hash_insert (arc_reg_hash, S_GET_NAME (regS), (void *) regS);
+  if (err)
+    as_fatal ("Inserting \"%s\" into register table failed: %s",
+	      name, err);
+}
+
+/* Construct symbols for each of the general registers.  */
+
+static void
+declare_register_set (void)
+{
+  int i;
+  for (i = 0; i < 32; ++i)
+    {
+      char name[4];
+
+      sprintf (name, "r%d", i);
+      declare_register (name, i);
+    }
 }
 
 /* Port-specific assembler initialization. This function is called
@@ -977,23 +997,21 @@ md_begin (void)
 	continue;
     }
 
-  /* Construct symbols for each of the registers.  */
-  for (i = 0; i < 32; ++i)
-    {
-      char name[4];
+  /* Register declaration.  */
+  arc_reg_hash = hash_new ();
+  if (arc_reg_hash == NULL)
+    as_fatal (_("Virtual memory exhausted"));
 
-      sprintf (name, "r%d", i);
-      asm_record_register (name, i);
-    }
-  asm_record_register ("gp", 26);
-  asm_record_register ("fp", 27);
-  asm_record_register ("sp", 28);
-  asm_record_register ("ilink", 29);
-  asm_record_register ("ilink1", 29);
-  asm_record_register ("ilink2", 30);
-  asm_record_register ("blink", 31);
-  asm_record_register ("lp_count", 60);
-  asm_record_register ("pcl", 63);
+  declare_register_set ();
+  declare_register ("gp", 26);
+  declare_register ("fp", 27);
+  declare_register ("sp", 28);
+  declare_register ("ilink", 29);
+  declare_register ("ilink1", 29);
+  declare_register ("ilink2", 30);
+  declare_register ("blink", 31);
+  declare_register ("lp_count", 60);
+  declare_register ("pcl", 63);
 }
 
 /* Write a value out to the object file, using the appropriate
@@ -1052,8 +1070,6 @@ md_pcrel_from_section (fixS *fixP,
 	{
 	case BFD_RELOC_ARC_S21H_PCREL:
 	case BFD_RELOC_ARC_S25H_PCREL:
-	  base &= ~1;
-	  break;
 	case BFD_RELOC_ARC_S13_PCREL:
 	case BFD_RELOC_ARC_S21W_PCREL:
 	case BFD_RELOC_ARC_S25W_PCREL:
@@ -1471,6 +1487,33 @@ md_operand (expressionS *expressionP ATTRIBUTE_UNUSED)
       expressionP->X_op = O_symbol;
       expression (expressionP);
     }
+}
+
+/*
+  This function is called from the function 'expression', it attempts
+  to parse special names (in our case register names).  It fills in
+  the expression with the identified register.  It returns 1 if it is
+  a register and 0 otherwise.
+*/
+
+int
+arc_parse_name (const char *name,
+		struct expressionS *e)
+{
+  struct symbol *sym;
+
+  /* This is set by the md_operand.  */
+  if (e->X_op == O_symbol)
+    return 0;
+
+  sym = hash_find (arc_reg_hash, name);
+  if (sym)
+    {
+      e->X_op = O_register;
+      e->X_add_number = S_GET_VALUE (sym);
+      return 1;
+    }
+  return 0;
 }
 
 /* md_parse_option
@@ -2044,6 +2087,17 @@ find_opcode_match (const struct arc_opcode *first_opcode,
 		  break;
 
 		default:
+		  /* Relocs requiring long immediate. FIXME! make it
+		     generic and move it to a function.  */
+		  switch (tok[tokidx].X_md)
+		    {
+		    case O_gotoff:
+		    case O_gotpc:
+		      if (!(operand->flags & ARC_OPERAND_LIMM))
+			goto match_failed;
+		    default:
+		      break;
+		    }
 		  if (operand->default_reloc == 0)
 		    goto match_failed; /* The operand needs relocation. */
 		  break;
@@ -2244,45 +2298,42 @@ assemble_insn (const struct arc_opcode *opcode,
 
 	default:
 	  /* This operand needs a relocation. */
-	  if (reloc == BFD_RELOC_UNUSED)
+	  switch (t->X_md)
 	    {
-	      switch (t->X_md)
-		{
-		case O_gotoff:
-		case O_gotpc:
-		case O_plt:
-		  /*FIXME! PLT reloc works for both bl/bl<cc>
-		    instructions. Maybe a good idea is to separate
-		    them. */
-		  if (GOT_symbol == NULL)
-		    GOT_symbol = symbol_find_or_make (GLOBAL_OFFSET_TABLE_NAME);
-		  /* Fall-through */
+	    case O_gotoff:
+	    case O_gotpc:
+	    case O_plt:
+	      /*FIXME! PLT reloc works for both bl/bl<cc>
+		instructions. Maybe a good idea is to separate
+		them. */
+	      if (GOT_symbol == NULL)
+		GOT_symbol = symbol_find_or_make (GLOBAL_OFFSET_TABLE_NAME);
+	      /* Fall-through */
 
-		case O_pcl:
-		  reloc = ARC_RELOC_TABLE(t->X_md)->reloc;
-		  break;
-		case O_sda:
-		  reloc = find_reloc ("sda", opcode->name,
-				      pflags, nflg,
-				      operand->default_reloc);
-		  break;
-		case O_tlsgd:
-		case O_tlsie:
-		  if (GOT_symbol == NULL)
-		    GOT_symbol = symbol_find_or_make (GLOBAL_OFFSET_TABLE_NAME);
-		  /* Fall-through */
+	    case O_pcl:
+	      reloc = ARC_RELOC_TABLE(t->X_md)->reloc;
+	      break;
+	    case O_sda:
+	      reloc = find_reloc ("sda", opcode->name,
+				  pflags, nflg,
+				  operand->default_reloc);
+	      break;
+	    case O_tlsgd:
+	    case O_tlsie:
+	      if (GOT_symbol == NULL)
+		GOT_symbol = symbol_find_or_make (GLOBAL_OFFSET_TABLE_NAME);
+	      /* Fall-through */
 
-		case O_tpoff9:
-		case O_tpoff:
-		case O_dtpoff9:
-		case O_dtpoff:
-		  as_bad (_("TLS relocs are not supported yet"));
-		  break;
-		default:
-		  /* Just consider the default relocation. */
-		  reloc = operand->default_reloc;
-		  break;
-		}
+	    case O_tpoff9:
+	    case O_tpoff:
+	    case O_dtpoff9:
+	    case O_dtpoff:
+	      as_bad (_("TLS relocs are not supported yet"));
+	      break;
+	    default:
+	      /* Just consider the default relocation. */
+	      reloc = operand->default_reloc;
+	      break;
 	    }
 
 	  //gas_assert (reloc_operand == NULL);
