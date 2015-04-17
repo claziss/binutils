@@ -1055,7 +1055,7 @@ md_pcrel_from_section (fixS *fixP,
 
       /* The symbol is undefined (or is defined but not in this section).
 	 Let the linker figure it out.  */
-      base = 0;
+      return 0;
     }
 
   if ((int) fixP->fx_r_type < 0 )
@@ -1073,16 +1073,13 @@ md_pcrel_from_section (fixS *fixP,
 	case BFD_RELOC_ARC_S13_PCREL:
 	case BFD_RELOC_ARC_S21W_PCREL:
 	case BFD_RELOC_ARC_S25W_PCREL:
+	case BFD_RELOC_ARC_PC32:
 	  base &= ~3;
 	  break;
-	case BFD_RELOC_ARC_PC32:
-	  /* this is a limm, it should not be 32bit align
-	     ... but probably it needs. */
-	  //base &= ~3;
-	  break;
 	default:
-	  as_bad (_("unhandled reloc %s in md_pcrel_from_section"),
-		  bfd_get_reloc_code_name (fixP->fx_r_type));
+	  as_bad_where (fixP->fx_file, fixP->fx_line,
+			_("unhandled reloc %s in md_pcrel_from_section"),
+			bfd_get_reloc_code_name (fixP->fx_r_type));
 	  break;
 	}
     }
@@ -1128,13 +1125,13 @@ md_apply_fix (fixS *fixP,
 
   pr_debug("%s:%u: apply_fix: r_type=%d (%s) value=%lx offset=%lx\n",
 	   fixP->fx_file, fixP->fx_line, fixP->fx_r_type,
-	   (fixP->fx_r_type < 0) ? "Internal":
+	   ((int) fixP->fx_r_type < 0) ? "Internal":
 	   bfd_get_reloc_code_name (fixP->fx_r_type), value,
 	   fixP->fx_offset);
 
   fx_addsy = fixP->fx_addsy;
   fx_subsy = fixP->fx_subsy;
-  fx_offset = fixP->fx_offset;
+  fx_offset = 0;
 
   if (fx_addsy)
     {
@@ -1195,7 +1192,12 @@ md_apply_fix (fixS *fixP,
       switch (fixP->fx_r_type)
 	{
 	case BFD_RELOC_ARC_32_ME:
-	  fixP->fx_r_type = BFD_RELOC_ARC_PC32; /*FIXME! Not sure if it is ok. Probably we should end in an error here */
+	  /* This is a pc-relative value in a LIMM. Adjust it to the
+	     address of the instruction not to the address of the
+	     LIMM.  */
+	  fixP->fx_r_type = BFD_RELOC_ARC_PC32;
+	  fixP->fx_offset += fixP->fx_frag->fr_address
+	    + fixP->fx_where - fixP->fx_dot_value;
 	  break;
 	default:
 	  if ((int) fixP->fx_r_type < 0)
@@ -1208,6 +1210,8 @@ md_apply_fix (fixS *fixP,
   if (!fixP->fx_done)
     return;
 
+  /* Addjust the value if we have a constant.  */
+  value += fx_offset;
 
   /* For hosts with longs bigger than 32-bits make sure that the top
      bits of a 32-bit negative value read in by the parser are set,
@@ -1227,6 +1231,7 @@ md_apply_fix (fixS *fixP,
     case BFD_RELOC_ARC_GOTPC32:
     case BFD_RELOC_ARC_GOTOFF:
     case BFD_RELOC_ARC_32_ME:
+    case BFD_RELOC_ARC_PC32:
       md_number_to_chars_midend (fixpos, value, fixP->fx_size);
       return;
 
@@ -2401,10 +2406,11 @@ assemble_insn (const struct arc_opcode *opcode,
 	    else
 	      bitYoperand = arc_NToperand;
 
-	  /* Check if we have a symbol or an solved immediate */
 	  gas_assert (reloc_exp != NULL);
 	  if (reloc_exp->X_op == O_constant)
 	    {
+	      /* Check if we have a constant and solved it
+		 immediately.  */
 	      offsetT val = reloc_exp->X_add_number;
 	      image |= insert_operand (image, &arc_operands[bitYoperand],
 				       val, NULL, 0);
@@ -2587,11 +2593,11 @@ insert_operand (unsigned insn,
 
   if ((operand->flags & ARC_OPERAND_ALIGNED32)
       && (val & 0x03))
-    as_bad (_("Unaligned operand. Needs to be 32bit aligned"));
+    as_bad_where (file, line, _("Unaligned operand. Needs to be 32bit aligned"));
 
   if ((operand->flags & ARC_OPERAND_ALIGNED16)
       && (val & 0x01))
-    as_bad (_("Unaligned operand. Needs to be 16bit aligned"));
+    as_bad_where (file, line, _("Unaligned operand. Needs to be 16bit aligned"));
 
   if (operand->insert)
     {
@@ -2599,7 +2605,7 @@ insert_operand (unsigned insn,
 
       insn = (*operand->insert) (insn, val, &errmsg);
       if (errmsg)
-	as_warn ("%s", errmsg);
+	as_warn_where (file, line, "%s", errmsg);
     }
   else
     {
