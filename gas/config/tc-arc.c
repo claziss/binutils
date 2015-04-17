@@ -2434,6 +2434,7 @@ insert_operand (unsigned insn,
   return insn;
 }
 
+#if 0
 /* This is a function to handle alignment and fill in the
    gaps created with nop/nop_s.
 */
@@ -2491,6 +2492,28 @@ arc_handle_align (fragS* fragP)
       md_number_to_chars_midend (dest, NOP_OPCODE_L, noop_size); /* Writing nop. */
     }
 }
+#else
+void
+arc_handle_align (fragS* fragP)
+{
+  if ((fragP)->fr_type == rs_align_code)
+    {
+      char *dest = (fragP)->fr_literal + (fragP)->fr_fix;
+      valueT count = ((fragP)->fr_next->fr_address
+		      - (fragP)->fr_address - (fragP)->fr_fix);
+
+      (fragP)->fr_var = 2;
+
+      if (count & 1)/* Padding in the gap till the next 2-byte boundary
+		       with 0s.  */
+	{
+	  (fragP)->fr_fix++;
+	  *dest++ = 0;
+	}
+      md_number_to_chars (dest, 0x78e0, 2);  /*writing nop_s */
+    }
+}
+#endif
 
 /* Compute the reloc type of an expression EXP.
 
