@@ -2579,6 +2579,10 @@ const struct arc_operand arc_operands[] =
 #define UIMM6_5_S       (W6 + 1)
     {6, 0, 0, ARC_OPERAND_UNSIGNED, insert_uimm6_5_s, extract_uimm6_5_s},
 
+    /* UIMM6_20_PCREL mask = 00000000000000000000111111000000 */
+#define UIMM6_20_PCREL       (UIMM6_5_S + 1)
+    {6, 0, -UIMM6_20_PCREL, ARC_OPERAND_UNSIGNED | ARC_OPERAND_TRUNCATE | ARC_OPERAND_ALIGNED32, insert_uimm6_20, extract_uimm6_20},
+
 #endif
   };
 const unsigned arc_num_operands = sizeof(arc_operands)/sizeof(*arc_operands);
@@ -2692,3 +2696,18 @@ const struct arc_pseudo_insn arc_pseudo_insns[] =
   };
 
 const unsigned arc_num_pseudo_insn = sizeof (arc_pseudo_insns) / sizeof (*arc_pseudo_insns);
+
+/* NOTE: The order of this array MUST be consistent with 'enum arc_rlx_types'
+   located in tc-arc.h! */
+const struct arc_opcode arc_relax_opcodes[] =
+  {
+    { NULL, 0x0, 0x0, 0x0, { }, { 0 } },
+    { "bl_s", 0x0000F800, 0x0000F800, ARC_OPCODE_ARC600 | ARC_OPCODE_ARC700 | ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS, { SIMM13_A32_5_S }, { 0 } },
+    { "bl", 0x08020000, 0xF8030000, ARC_OPCODE_ARC600 | ARC_OPCODE_ARC700 | ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS, { SIMM25_A32_5 }, { C_D }},
+    { "b_s", 0x0000F000, 0x0000FE00, ARC_OPCODE_ARC600 | ARC_OPCODE_ARC700 | ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS, { SIMM10_A16_7_S }, { 0 }},
+    { "b", 0x00010000, 0xF8010000, ARC_OPCODE_ARC600 | ARC_OPCODE_ARC700 | ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS, { SIMM25_A16_5 }, { C_D }},
+    { "add", 0x20400000, 0xF8FF0000, ARC_OPCODE_ARC600 | ARC_OPCODE_ARC700 | ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS, { RA, RB, UIMM6_20_PCREL }, { C_F }},
+    { "add", 0x20000F80, 0xF8FF0FC0, ARC_OPCODE_ARC600 | ARC_OPCODE_ARC700 | ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS, { RA, RB, LIMM }, { C_F }},
+  };
+
+const unsigned arc_num_relax_opcodes = sizeof (arc_relax_opcodes) / sizeof (*arc_relax_opcodes);

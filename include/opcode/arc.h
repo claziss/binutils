@@ -61,6 +61,13 @@ struct arc_opcode
 extern const struct arc_opcode arc_opcodes[];
 extern const unsigned arc_num_opcodes;
 
+/* Opcode table for relaxation. Used in relaxation to use the right opcode
+   encoding (normally will default to biggest instruction).
+   NOTE: The order of this array MUST be consistent with 'enum arc_rlx_types'
+   located in tc-arc.h! */
+extern const struct arc_opcode arc_relax_opcodes[];
+extern const unsigned arc_num_relax_opcodes;
+
 /* CPU Availability */
 #define ARC_OPCODE_ARC600   0x0001  /* ARC 600 specific insns.  */
 #define ARC_OPCODE_ARC700   0x0002  /* ARC 700 specific insns.  */
