@@ -2259,12 +2259,14 @@ find_reloc (const char *name,
   return ret;
 }
 
+/* Note: Just a label is not allowed since that value is relative to the start of the section.
+   However, if the symbol is a pc-relative dot, we want to allow that. */
 int
 may_relax_expr (expressionS tok)
 {
   switch (tok.X_op)
     {
-      case O_symbol:
+      //case O_symbol:
       case O_multiply:
       case O_divide:
       case O_modulus:
@@ -2273,7 +2275,7 @@ may_relax_expr (expressionS tok)
 	return 1;
 
       default:
-        break;
+	break;
     }
   return 0;
 }
@@ -2800,22 +2802,4 @@ tc_arc_fix_adjustable (fixS *fixP)
     /*PLT!: || fixP->fx_r_type == BFD_RELOC_ARC_PLT32)*/
     return 0;
   return 1;
-}
-
-/* Used because ARC's relaxable instructions aren't always using pc-relative
-   values to be figured out within the operand. Sometimes we use an expression
-   which uses pc-relative positioning but doesn't have to be accounted for
-   during relaxation. This function compensates for the value relax_frag uses
-   to calculate the pc-rel aim of a instruction. An example would be:
-
-   add r1, r2, <Label_in_same_section> - .
-
-   Which can be calculated during assembly time into a constant. */
-int
-arc_relax_adjust (fragS *fragP)
-{
-  if (fragP->tc_frag_data.pcrel)
-    return 0;
-
-  return (fragP->fr_address + fragP->fr_fix);
 }

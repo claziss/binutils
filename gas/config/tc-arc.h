@@ -66,10 +66,6 @@ extern const char *arc_target_format;
    file.  This will normally depend upon the `OBJ_FMT' macro.  */
 #define TARGET_FORMAT          arc_target_format
 
-/* Macro for simplifying expression arithmic. */
-#define TC_PCREL_ADJUST(F) arc_relax_adjust(F)
-extern int arc_relax_adjust (fragS *fragP);
-
 /* `md_short_jump_size'
    `md_long_jump_size'
    `md_create_short_jump'

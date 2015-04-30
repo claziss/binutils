@@ -2581,11 +2581,11 @@ const struct arc_operand arc_operands[] =
 
     /* UIMM6_20_PCREL mask = 00000000000000000000111111000000 */
 #define UIMM6_20_PCREL       (UIMM6_5_S + 1)
-    {6, 0, -UIMM6_20_PCREL, ARC_OPERAND_UNSIGNED | ARC_OPERAND_TRUNCATE | ARC_OPERAND_ALIGNED32, insert_uimm6_20, extract_uimm6_20},
+    {6, 0, -UIMM6_20_PCREL, ARC_OPERAND_UNSIGNED, insert_uimm6_20, extract_uimm6_20},
 
     /* SIMM9_8_PCREL mask = 00000000111111112000000000000000 */
 #define SIMM9_8_PCREL       (UIMM6_20_PCREL + 1)
-    {9, 0, -SIMM9_8_PCREL, ARC_OPERAND_SIGNED | ARC_OPERAND_TRUNCATE | ARC_OPERAND_ALIGNED32, insert_simm9_8, extract_simm9_8},
+    {9, 0, -SIMM9_8_PCREL, ARC_OPERAND_SIGNED, insert_simm9_8, extract_simm9_8},
 #endif
   };
 const unsigned arc_num_operands = sizeof(arc_operands)/sizeof(*arc_operands);
