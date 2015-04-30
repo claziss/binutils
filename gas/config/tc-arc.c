@@ -87,6 +87,9 @@ static int byte_order = DEFAULT_BYTE_ORDER;
 
 extern int arc_get_mach (char *);
 
+/* By default relaxation is disabled. */
+static int relaxation_state = DEFAULT_RELAX_STATE;
+
 /* Forward declaration */
 static void arc_common (int);
 static void arc_option (int);
@@ -112,7 +115,9 @@ enum options
   {
     OPTION_EB = OPTION_MD_BASE,
     OPTION_EL,
-    OPTION_MCPU
+    OPTION_MCPU,
+    OPTION_RELAX,
+    OPTION_NO_RELAX
   };
 
 struct option md_longopts[] =
@@ -120,6 +125,8 @@ struct option md_longopts[] =
     { "EB",             no_argument, NULL, OPTION_EB },
     { "EL",             no_argument, NULL, OPTION_EL },
     { "mcpu",           required_argument, NULL, OPTION_MCPU },
+    { "relax",          no_argument, NULL, OPTION_RELAX },
+    { "no-relax",       no_argument, NULL, OPTION_NO_RELAX },
     { NULL,		no_argument, NULL, 0 }
   };
 
@@ -288,6 +295,7 @@ static const struct arc_opcode *find_special_case_pseudo (const char *opname,
 							  int *ntok, expressionS *tok, int *nflgs, struct arc_flags *pflags);
 static int get_arc_exp_reloc_type (int, int, expressionS *);
 static char *convert_relaxable_insn (char *, const expressionS *, int, struct arc_flags *, int);
+static int use_relax (void);
 
 /**************************************************************************/
 /* Functions implementation                                               */
@@ -809,7 +817,9 @@ md_assemble (char *str)
       return;
     }
 
-  opname = convert_relaxable_insn (opname, tok, ntok, flags, nflg);
+  /* If relaxation is enabled, convert any relaxable instructions. */
+  if (use_relax ())
+    opname = convert_relaxable_insn (opname, tok, ntok, flags, nflg);
 
   /* Finish it off. */
   assemble_tokens (opname, tok, ntok, flags, nflg);
@@ -1566,6 +1576,8 @@ arc_parse_name (const char *name,
    -k			 Generate PIC code
 
    -m[no-]warn-deprecated     Warn about deprecated features
+   -relax			Enable relaxation
+   -no-relax			Disable relaxation
 
    The following CPU names are recognized:
    arc700, av2em, av2hs.
@@ -1623,6 +1635,12 @@ md_parse_option (int c,
       arc_target_format = "elf32-littlearc";
       byte_order = LITTLE_ENDIAN;
       break;
+    case OPTION_RELAX:
+      relaxation_state = 1;
+      break;
+    case OPTION_NO_RELAX:
+      relaxation_state = 0;
+      break;
 
     default:
       return 0;
@@ -1641,12 +1659,16 @@ md_show_usage (FILE *stream)
 {
   fprintf (stream, _("ARC-specific assembler options:\n"));
 
-  fprintf (stream, "  -mcpu=<cpu name>\t  assemble for CPU <cpu name>\n");
+  fprintf (stream, _("  -mcpu=<cpu name>\t  assemble for CPU <cpu name>\n"));
 
   fprintf (stream, _("\
   -EB                     assemble code for a big-endian cpu\n"));
   fprintf (stream, _("\
   -EL                     assemble code for a little-endian cpu\n"));
+  fprintf (stream, _("\
+  -relax                  Enable relaxation"));
+  fprintf (stream, _("\
+  -no-relax               Disable relaxation"));
 }
 
 /* Given an opcode name, pre-tockenized set of argumenst and the
@@ -2489,7 +2511,7 @@ assemble_insn (const struct arc_opcode *opcode,
     }
 
   /* Relaxable instruction? */
-  for (i = 0; i < arc_num_relaxable_ins; ++i)
+  for (i = 0; i < arc_num_relaxable_ins && use_relax (); ++i)
     {
       if (strcmp (opcode->name, arc_relaxable_insns[i].mnemonic_alt) == 0 &&
 	  may_relax_expr (tok[arc_relaxable_insns[i].opcheckidx]))
@@ -2506,7 +2528,7 @@ assemble_insn (const struct arc_opcode *opcode,
 	}
     }
 
-  if (i == arc_num_relaxable_ins)
+  if (i == arc_num_relaxable_ins || !use_relax ())
     insn->relax = 0;
 
   /* Short instruction? */
@@ -2802,4 +2824,11 @@ tc_arc_fix_adjustable (fixS *fixP)
     /*PLT!: || fixP->fx_r_type == BFD_RELOC_ARC_PLT32)*/
     return 0;
   return 1;
+}
+
+/* Returns non-zero number if relaxation is enabled. */
+static int
+use_relax (void)
+{
+  return relaxation_state;
 }

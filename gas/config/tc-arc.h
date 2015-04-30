@@ -58,6 +58,8 @@
 
 #endif /* TARGET_BYTES_BIG_ENDIAN */
 
+#define DEFAULT_RELAX_STATE 0
+
 /* The endianness of the target format may change based on command
    line arguments.  */
 extern const char *arc_target_format;
