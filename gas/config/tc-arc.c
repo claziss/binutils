@@ -1666,9 +1666,9 @@ md_show_usage (FILE *stream)
   fprintf (stream, _("\
   -EL                     assemble code for a little-endian cpu\n"));
   fprintf (stream, _("\
-  -relax                  Enable relaxation"));
+  -relax                  Enable relaxation\n"));
   fprintf (stream, _("\
-  -no-relax               Disable relaxation"));
+  -no-relax               Disable relaxation\n"));
 }
 
 /* Given an opcode name, pre-tockenized set of argumenst and the
