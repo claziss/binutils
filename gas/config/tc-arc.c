@@ -816,11 +816,11 @@ md_assemble (char *str)
       as_bad (_("syntax error"));
       return;
     }
-
+#if 0
   /* If relaxation is enabled, convert any relaxable instructions. */
   if (use_relax ())
     opname = convert_relaxable_insn (opname, tok, ntok, flags, nflg);
-
+#endif
   /* Finish it off. */
   assemble_tokens (opname, tok, ntok, flags, nflg);
 }
@@ -841,7 +841,11 @@ relaxable_operand (const struct arc_relaxable_ins *ins,
 
       switch (tok[i].X_op)
 	{
-	case O_constant:
+	case O_multiply:
+	case O_divide:
+	case O_modulus:
+	case O_add:
+	case O_subtract:
 	case O_symbol:
 	  if (*operand != IMMEDIATE)
 	    return 0;
@@ -911,6 +915,8 @@ relaxable_flag (const struct arc_relaxable_ins *ins,
   return (counttrue == nflgs);
 }
 
+#if 0
+
 /* Used to check if opname/operand/flag combination results in
    a relaxable instruction. Returns either smallest version of
    relaxable instruction or the old opname. */
@@ -945,6 +951,8 @@ convert_relaxable_insn (char *opname,
 
   return opname;
 }
+
+#endif
 
 /* Callback to insert a register into the hash table. */
 static void
@@ -1187,11 +1195,6 @@ md_apply_fix (fixS *fixP,
 	  fx_addsy = NULL;
 	  fixP->fx_pcrel = FALSE;
 	}
-      else if (add_symbol_segment == seg
-	  && !fixP->fx_pcrel)
-	{
-	  fx_addsy = NULL;
-	}
       else if (add_symbol_segment == absolute_section)
 	{
 	  fx_offset += S_GET_VALUE(fixP->fx_addsy);
@@ -1329,12 +1332,15 @@ md_estimate_size_before_relax (fragS *fragP,
   int growth;
   int size_array = sizeof (md_relax_table) / sizeof (md_relax_table[0]);
 
-  /* If the label is not located within the same section and it's not
-     an absolute section, use the maximum. This is pretty silly but we check
-     against absolute_section because that's what make_symbol_expr uses as
-     default for expressions. */
-  if (S_GET_SEGMENT (fragP->fr_symbol) != segment &&
-      S_GET_SEGMENT (fragP->fr_symbol) != absolute_section)
+  /* If the symbol is not located within the same section AND it's not
+     an absolute section, use the maximum.
+     OR if the symbol is a constant AND the insn is by nature not pc-rel,
+     use the maximum.
+     OR if the symbol is being equated against another symbol, use the maximum. */
+  if ((S_GET_SEGMENT (fragP->fr_symbol) != segment &&
+      S_GET_SEGMENT (fragP->fr_symbol) != absolute_section) ||
+      (symbol_constant_p (fragP->fr_symbol) && !fragP->tc_frag_data.pcrel) ||
+      symbol_equated_p (fragP->fr_symbol))
     {
       while (md_relax_table[fragP->fr_subtype].rlx_more != ARC_RLX_NONE)
 	++fragP->fr_subtype;
@@ -2281,14 +2287,13 @@ find_reloc (const char *name,
   return ret;
 }
 
-/* Note: Just a label is not allowed since that value is relative to the start of the section.
-   However, if the symbol is a pc-relative dot, we want to allow that. */
+/* All the symbol types that are allowed to be used for relaxation. */
 int
 may_relax_expr (expressionS tok)
 {
   switch (tok.X_op)
     {
-      //case O_symbol:
+      case O_symbol:
       case O_multiply:
       case O_divide:
       case O_modulus:
@@ -2513,8 +2518,16 @@ assemble_insn (const struct arc_opcode *opcode,
   /* Relaxable instruction? */
   for (i = 0; i < arc_num_relaxable_ins && use_relax (); ++i)
     {
-      if (strcmp (opcode->name, arc_relaxable_insns[i].mnemonic_alt) == 0 &&
-	  may_relax_expr (tok[arc_relaxable_insns[i].opcheckidx]))
+      const struct arc_relaxable_ins *arc_rlx_ins = &arc_relaxable_insns[i];
+
+      /* Is it me or does this seem to get uglier each time I scroll
+	 across this function? All jokes aside, we need to make sure the insn
+	 is a relaxable one before we tag it relaxable. */
+      if ((strcmp (opcode->name, arc_rlx_ins->mnemonic_alt) == 0 ||
+	  strcmp (opcode->name, arc_rlx_ins->mnemonic_r) == 0) &&
+	  may_relax_expr (tok[arc_rlx_ins->opcheckidx]) &&
+	  relaxable_operand (arc_rlx_ins, tok, ntok) &&
+	  relaxable_flag (arc_rlx_ins, pflags, nflg))
 	{
 	  insn->relax = 1;
 	  frag_now->fr_subtype = arc_relaxable_insns[i].subtype;
@@ -2527,9 +2540,6 @@ assemble_insn (const struct arc_opcode *opcode,
 	  break;
 	}
     }
-
-  if (i == arc_num_relaxable_ins || !use_relax ())
-    insn->relax = 0;
 
   /* Short instruction? */
   insn->short_insn = ARC_SHORT (opcode->mask);
@@ -2551,7 +2561,7 @@ emit_insn (struct arc_insn *insn)
   /* Write out the instruction.  */
   if (insn->relax)
     {
-      /* How frag_var is args are currently configured:
+      /* How frag_var's args are currently configured:
 	   - rs_machine_dependent, to dictate it's a relaxation frag.
 	   - FRAG_MAX_GROWTH, maximum size of instruction
 	   - 0, variable size that might grow...unused by generic relaxation.
@@ -2599,44 +2609,44 @@ emit_insn (struct arc_insn *insn)
 	      dwarf2_emit_insn (4);
 	    }
         }
-    }
 
-  /* Apply the fixups in order except when insn is relaxable.  */
-  for (i = 0; i < insn->nfixups && !insn->relax; i++)
-    {
-      struct arc_fixup *fixup = &insn->fixups[i];
-      int size, pcrel, offset = 0;
-      fixS *fixP;
-
-      size = (insn->short_insn && !fixup->islong ) ? 2 : 4;
-
-      if (fixup->islong)
-	offset = (insn->short_insn) ? 2 : 4;
-
-      /* Some fixups are only used internally, thus no howto.  */
-      if ((int) fixup->reloc < 0)
+      /* Apply the fixups in order except when insn is relaxable.  */
+      for (i = 0; i < insn->nfixups; i++)
 	{
-	  //size = (insn->short_insn && !fixup->islong) ? 2 : 4;
-	  pcrel = fixup->pcrel;
-	  pr_debug ("PCrel :%d\n", fixup->pcrel);
-	}
-      else
-	{
-	  reloc_howto_type *reloc_howto =
-	    bfd_reloc_type_lookup (stdoutput,
+	  struct arc_fixup *fixup = &insn->fixups[i];
+	  int size, pcrel, offset = 0;
+	  fixS *fixP;
+
+	  size = (insn->short_insn && !fixup->islong ) ? 2 : 4;
+
+	  if (fixup->islong)
+	    offset = (insn->short_insn) ? 2 : 4;
+
+	  /* Some fixups are only used internally, thus no howto.  */
+	  if ((int) fixup->reloc < 0)
+	    {
+	      //size = (insn->short_insn && !fixup->islong) ? 2 : 4;
+	      pcrel = fixup->pcrel;
+	      pr_debug ("PCrel :%d\n", fixup->pcrel);
+	    }
+	  else
+	    {
+	      reloc_howto_type *reloc_howto =
+	      bfd_reloc_type_lookup (stdoutput,
 				   (bfd_reloc_code_real_type) fixup->reloc);
-	  gas_assert (reloc_howto);
-	  //size = bfd_get_reloc_size (reloc_howto);
-	  pcrel = reloc_howto->pc_relative;
-	}
+	      gas_assert (reloc_howto);
+	      //size = bfd_get_reloc_size (reloc_howto);
+	      pcrel = reloc_howto->pc_relative;
+	    }
 
-      pr_debug ("%s:%d: emit_insn: new %s fixup of size %d @ offset %d\n",
+	  pr_debug ("%s:%d: emit_insn: new %s fixup of size %d @ offset %d\n",
 		frag_now->fr_file, frag_now->fr_line,
 		(fixup->reloc < 0) ? "Internal" :
 		bfd_get_reloc_code_name (fixup->reloc),
 		size, offset);
-      fixP = fix_new_exp (frag_now, f - frag_now->fr_literal + offset,
+	  fixP = fix_new_exp (frag_now, f - frag_now->fr_literal + offset,
 			  size, &fixup->exp, pcrel, fixup->reloc);
+	}
     }
 }
 
@@ -2831,4 +2841,13 @@ static int
 use_relax (void)
 {
   return relaxation_state;
+}
+
+int
+arc_pcrel_adjust (fragS *fragP)
+{
+  if (!fragP->tc_frag_data.pcrel)
+    return fragP->fr_address;
+
+  return 0;
 }

@@ -246,3 +246,7 @@ struct arc_relax_type
 /* Used within frags to pass some information to some relaxation machine
    dependent values. */
 #define TC_FRAG_TYPE struct arc_relax_type
+
+/* Adjust non PC-rel values at relaxation time. */
+#define TC_PCREL_ADJUST(F) arc_pcrel_adjust(F)
+extern int arc_pcrel_adjust(fragS *);
