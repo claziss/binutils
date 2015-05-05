@@ -2434,20 +2434,20 @@ insert_operand (unsigned insn,
   return insn;
 }
 
-#if 0
+#if 1
 /* This is a function to handle alignment and fill in the
    gaps created with nop/nop_s.
 */
 void
 arc_handle_align (fragS* fragP)
 {
-  unsigned noop_size, noop, fix = 0;
+  unsigned noop_size, noop;
   char *dest = (fragP)->fr_literal + (fragP)->fr_fix;
   valueT count = ((fragP)->fr_next->fr_address - (fragP)->fr_address -
 		  (fragP)->fr_fix);
   valueT alignment_offset = count % 4;
 
-  if ((fragP)->fr_type != rs_align_code)
+  if ((fragP)->fr_type != rs_align_code || count == 0)
     return;
 
   /* Check 4-byte alignment. */
@@ -2465,32 +2465,24 @@ arc_handle_align (fragS* fragP)
   /* Padding in the gap till the next 2-byte boundary with 0s. */
   if (count & 1)
     {
-      fix += 1;
+      (fragP)->fr_fix++;
       *dest++ = 0;
+      if (!(--count))
+	return;
     }
 
   md_number_to_chars_midend (dest, noop, noop_size); /* Writing nop(_s). */
-  fix += noop_size;
   count -= noop_size;
-  (fragP)->fr_var = noop_size;
 
-  /* Check if there's a 4 byte aligned unfixed area left after the 2-byte
-     nop_s insert. */
   if (count >= 4 && noop_size == 2)
     {
+      (fragP)->fr_fix += noop_size;
+      dest += noop_size;
       noop_size = 4;
-      /* Added 4 for space for fr_literal (?). */
-      fragS *nop = xmalloc (SIZEOF_STRUCT_FRAG + noop_size);
-      memcpy (nop, fragP, SIZEOF_STRUCT_FRAG);
-      fragP->fr_next = nop;
-      fragP = nop;
-      nop->fr_address += nop->fr_fix + fix;
-      nop->fr_fix = 0;
-      nop->fr_type = rs_align;
-      nop->fr_var = noop_size;
-      dest = nop->fr_literal;
-      md_number_to_chars_midend (dest, NOP_OPCODE_L, noop_size); /* Writing nop. */
+      md_number_to_chars_midend (dest, NOP_OPCODE_L, noop_size);
     }
+
+  (fragP)->fr_var = noop_size;
 }
 #else
 void
