@@ -166,6 +166,7 @@ enum rlx_operand_type
 {
   EMPTY = 0,
   REGISTER,
+  REGISTER_NO_GP, /* Is a register but not gp register specifically. */
   IMMEDIATE,
   BRACKET
 };

@@ -72,7 +72,7 @@ const struct arc_relaxable_ins arc_relaxable_insns[] =
     { "bl", { IMMEDIATE }, { 0 }, "bl_s", 0, ARC_RLX_BL_S },
     { "b", { IMMEDIATE }, { 0 }, "b_s", 0, ARC_RLX_B_S },
     { "add", { REGISTER, REGISTER, IMMEDIATE }, { 5, 0 }, "add", 2, ARC_RLX_ADD_U6 },
-    { "ld", { REGISTER, BRACKET, REGISTER, IMMEDIATE, BRACKET }, { 11, 4, 14, 17, 0 }, "ld", 3, ARC_RLX_LD_S9 },
+    { "ld", { REGISTER, BRACKET, REGISTER_NO_GP, IMMEDIATE, BRACKET }, { 11, 4, 14, 17, 0 }, "ld", 3, ARC_RLX_LD_S9 },
   };
 
 const unsigned arc_num_relaxable_ins = sizeof (arc_relaxable_insns)

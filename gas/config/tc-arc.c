@@ -294,7 +294,6 @@ static const struct arc_opcode *find_special_case (const char *opname,
 static const struct arc_opcode *find_special_case_pseudo (const char *opname,
 							  int *ntok, expressionS *tok, int *nflgs, struct arc_flags *pflags);
 static int get_arc_exp_reloc_type (int, int, expressionS *);
-static char *convert_relaxable_insn (char *, const expressionS *, int, struct arc_flags *, int);
 static int use_relax (void);
 
 /**************************************************************************/
@@ -816,11 +815,6 @@ md_assemble (char *str)
       as_bad (_("syntax error"));
       return;
     }
-#if 0
-  /* If relaxation is enabled, convert any relaxable instructions. */
-  if (use_relax ())
-    opname = convert_relaxable_insn (opname, tok, ntok, flags, nflg);
-#endif
   /* Finish it off. */
   assemble_tokens (opname, tok, ntok, flags, nflg);
 }
@@ -836,28 +830,36 @@ relaxable_operand (const struct arc_relaxable_ins *ins,
 
   while (*operand != EMPTY)
     {
+      expressionS *epr = &tok[i];
+
       if (i != 0 && i >= ntok)
 	return 0;
 
-      switch (tok[i].X_op)
+      switch (*operand)
 	{
-	case O_multiply:
-	case O_divide:
-	case O_modulus:
-	case O_add:
-	case O_subtract:
-	case O_symbol:
-	  if (*operand != IMMEDIATE)
+	case IMMEDIATE:
+	  if (!(epr->X_op == O_multiply ||
+		epr->X_op == O_divide ||
+		epr->X_op == O_modulus ||
+		epr->X_op == O_add ||
+		epr->X_op == O_subtract ||
+		epr->X_op == O_symbol))
 	    return 0;
 	  break;
 
-	case O_register:
-	  if (*operand != REGISTER)
+	case REGISTER:
+	  if (epr->X_op != O_register)
 	    return 0;
 	  break;
 
-	case O_bracket:
-	  if (*operand != BRACKET)
+	case REGISTER_NO_GP:
+	  if (epr->X_op != O_register ||
+	      epr->X_add_number == 26) /* 26 is the gp register. */
+	    return 0;
+	  break;
+
+	case BRACKET:
+	  if (epr->X_op != O_bracket)
 	    return 0;
 	  break;
 
@@ -914,45 +916,6 @@ relaxable_flag (const struct arc_relaxable_ins *ins,
   /* If counttrue == nflgs, then all flags have been found. */
   return (counttrue == nflgs);
 }
-
-#if 0
-
-/* Used to check if opname/operand/flag combination results in
-   a relaxable instruction. Returns either smallest version of
-   relaxable instruction or the old opname. */
-static char *
-convert_relaxable_insn (char *opname,
-		const expressionS *tok,
-		int ntok,
-		struct arc_flags *pflags,
-		int nflgs)
-{
-  char *newopname;
-  const struct arc_relaxable_ins *ins;
-  size_t opnamelen;
-  unsigned i;
-
-  for (i = 0; i < arc_num_relaxable_ins; ++i)
-    {
-      ins = &arc_relaxable_insns[i];
-
-      /* Check if opname and mnemonic are the same. */
-      if (strcmp (ins->mnemonic_r, opname) == 0 &&
-	  relaxable_operand (ins, tok, ntok) &&
-	  relaxable_flag (ins, pflags, nflgs))
-	{
-	  xfree (opname);
-	  opnamelen = strlen (ins->mnemonic_alt);
-	  newopname = xmalloc (opnamelen + 1);
-	  memcpy (newopname, ins->mnemonic_alt, opnamelen + 1);
-	  return newopname;
-	}
-    }
-
-  return opname;
-}
-
-#endif
 
 /* Callback to insert a register into the hash table. */
 static void
@@ -1418,11 +1381,12 @@ md_convert_frag (bfd *abfd ATTRIBUTE_UNUSED,
   const char* opname;
   const struct arc_opcode *opcode;
   const struct arc_insn insn;
-  int i, offset = 0;
+  int i, offset = 0, fix;
   struct arc_relax_type *relax_arg = &fragP->tc_frag_data;
   extended_bfd_reloc_code_real_type reloc = BFD_RELOC_UNUSED;
 
-  dest = fragP->fr_literal + fragP->fr_fix;
+  fix = (fragP->fr_fix < 0 ? 0 : fragP->fr_fix);
+  dest = fragP->fr_literal + fix;
   table_entry = TC_GENERIC_RELAX_TABLE + fragP->fr_subtype;
 
   if (0 >= fragP->fr_subtype && fragP->fr_subtype >= arc_num_relax_opcodes)
@@ -1467,11 +1431,10 @@ md_convert_frag (bfd *abfd ATTRIBUTE_UNUSED,
 		((int) fixup->reloc < 0) ? "Internal" :
 		bfd_get_reloc_code_name (fixup->reloc),
 		size, offset);
-      fixP = fix_new_exp (fragP, fragP->fr_fix + offset,
+      fixP = fix_new_exp (fragP, fix + offset,
 		size, &fixup->exp, pcrel, fixup->reloc);
     }
 
-  /* TODO: Change this to support insn sizes (i.e. with limm) > 4 bytes. */
   md_number_to_chars_midend (dest, insn.insn, table_entry->rlx_length - offset);
 
   fragP->fr_fix += table_entry->rlx_length;
@@ -2523,8 +2486,7 @@ assemble_insn (const struct arc_opcode *opcode,
       /* Is it me or does this seem to get uglier each time I scroll
 	 across this function? All jokes aside, we need to make sure the insn
 	 is a relaxable one before we tag it relaxable. */
-      if ((strcmp (opcode->name, arc_rlx_ins->mnemonic_alt) == 0 ||
-	  strcmp (opcode->name, arc_rlx_ins->mnemonic_r) == 0) &&
+      if (strcmp (opcode->name, arc_rlx_ins->mnemonic_r) == 0 &&
 	  may_relax_expr (tok[arc_rlx_ins->opcheckidx]) &&
 	  relaxable_operand (arc_rlx_ins, tok, ntok) &&
 	  relaxable_flag (arc_rlx_ins, pflags, nflg))
@@ -2571,7 +2533,31 @@ emit_insn (struct arc_insn *insn)
 	   - 0, opcode but it's unused. */
       symbolS *s = make_expr_symbol (&insn->fixups[0].exp);
       frag_now->tc_frag_data.pcrel = insn->fixups[0].pcrel;
-      f = frag_var (rs_machine_dependent, FRAG_MAX_GROWTH, 0,
+
+      if (frag_room () < FRAG_MAX_GROWTH)
+	{
+	  /* Handle differently when frag literal memory is exhausted. This is
+	     used because when there's not enough memory left in the current
+	     frag, a new frag is created and the information we put into
+	     frag_now->tc_frag_data is disregarded. */
+
+	  struct arc_relax_type relax_info_copy;
+	  relax_substateT subtype = frag_now->fr_subtype;
+
+	  memcpy (&relax_info_copy, &frag_now->tc_frag_data,
+	    sizeof (struct arc_relax_type));
+
+	  frag_wane (frag_now);
+	  frag_grow (FRAG_MAX_GROWTH);
+
+	  memcpy (&frag_now->tc_frag_data, &relax_info_copy,
+	    sizeof (struct arc_relax_type));
+
+	  frag_var (rs_machine_dependent, FRAG_MAX_GROWTH, 0,
+	    subtype, s, 0, 0);
+	}
+      else
+	f = frag_var (rs_machine_dependent, FRAG_MAX_GROWTH, 0,
 	   frag_now->fr_subtype, s, 0, 0);
     }
   else
