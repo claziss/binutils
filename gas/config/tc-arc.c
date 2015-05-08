@@ -2821,11 +2821,18 @@ use_relax (void)
   return relaxation_state;
 }
 
+/* Used because generic relaxation assumes a pc-rel value whilst we also
+   relax instructions that use an absolute value resolved out of relative
+   values (if that makes any sense). An example: 'add r1, r2, @.L2 - .'
+   The symbols . and @.L2 are relative to the section but if they're in the
+   same section we can subtract the section offset relocation which ends up
+   in a resolved value. So if @.L2 is .text + 0x50 and . is .text + 0x10, we
+   can say that .text + 0x50 - .text + 0x40 = 0x10. */
 int
 arc_pcrel_adjust (fragS *fragP)
 {
   if (!fragP->tc_frag_data.pcrel)
-    return fragP->fr_address;
+    return fragP->fr_address + fragP->fr_fix;
 
   return 0;
 }
