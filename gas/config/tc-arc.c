@@ -87,7 +87,7 @@ static int byte_order = DEFAULT_BYTE_ORDER;
 extern int arc_get_mach (char *);
 
 /* Forward declaration */
-static void arc_common (int);
+static void arc_lcomm  (int);
 static void arc_option (int);
 
 const pseudo_typeS md_pseudo_table[] =
@@ -96,10 +96,8 @@ const pseudo_typeS md_pseudo_table[] =
     { "word", cons, 4 },
 
     { "align",   s_align_bytes, 0 }, /* Defaulting is invalid (0).  */
-    { "comm",    arc_common, 0 },
-    { "common",  arc_common, 0 },
-    { "lcomm",   arc_common, 1 },
-    { "lcommon", arc_common, 1 },
+    { "lcomm",   arc_lcomm, 0 },
+    { "lcommon", arc_lcomm, 0 },
     { "cpu",     arc_option, 0 },
 
     { NULL, NULL, 0 }
@@ -172,7 +170,7 @@ static int mach_type_specified_p = 0;
 static struct hash_control *arc_opcode_hash;
 
 /* The hash table of register symbols.  */
-static struct has_control *arc_reg_hash;
+static struct hash_control *arc_reg_hash;
 
 /* A table of CPU names and opcode sets.  */
 static const struct cpu_type
@@ -189,7 +187,7 @@ static const struct cpu_type
       { "arcem",  ARC_OPCODE_ARCv2EM, bfd_mach_arc_arcv2, E_ARC_MACH_ARCV2 },
       { "archs",  ARC_OPCODE_ARCv2HS, bfd_mach_arc_arcv2, E_ARC_MACH_ARCV2 },
       { "all",    ARC_OPCODE_BASE, bfd_mach_arc_arcv2, 0x00 },
-      { 0, 0, 0 }
+      { 0, 0, 0, 0 }
     };
 
 struct arc_flags
@@ -288,9 +286,11 @@ static void emit_insn (struct arc_insn *);
 static unsigned insert_operand (unsigned, const struct arc_operand *,
 				offsetT, char *, unsigned);
 static const struct arc_opcode *find_special_case_flag (const char *opname,
-							int *nflgs, struct arc_flags *pflags);
+							int *nflgs,
+							struct arc_flags *pflags);
 static const struct arc_opcode *find_special_case (const char *opname,
-						   int *nflgs, struct arc_flags *pflags, expressionS *tok, int *ntok);
+						   int *nflgs, struct arc_flags *pflags,
+						   expressionS *tok, int *ntok);
 static const struct arc_opcode *find_special_case_pseudo (const char *opname,
 							  int *ntok, expressionS *tok, int *nflgs, struct arc_flags *pflags);
 static int get_arc_exp_reloc_type (int, int, expressionS *);
@@ -319,121 +319,47 @@ md_number_to_chars_midend (char *buf,
     }
 }
 
-static void
-arc_common (int localScope)
-{
-  char *name;
-  char c;
-  char *p;
-  int align, size;
-  symbolS *symbolP;
+/* Here ends all the ARCompact extension instruction assembling stuff.  */
 
-  name = input_line_pointer;
-  c = get_symbol_end ();
-  /* just after name is now '\0'  */
-  p = input_line_pointer;
-  *p = c;
+static symbolS *
+arc_lcomm_internal (int ignore ATTRIBUTE_UNUSED,
+		    symbolS *symbolP, addressT size)
+{
+  addressT align = 0;
   SKIP_WHITESPACE ();
 
-  if (*input_line_pointer != ',')
-    {
-      as_bad (_("expected comma after symbol name"));
-      ignore_rest_of_line ();
-      return;
-    }
-
-  input_line_pointer++;		/* skip ','  */
-  size = get_absolute_expression ();
-
-  if (size < 0)
-    {
-      as_bad (_("negative symbol length"));
-      ignore_rest_of_line ();
-      return;
-    }
-
-  *p = 0;
-  symbolP = symbol_find_or_make (name);
-  *p = c;
-
-  if (S_IS_DEFINED (symbolP) && ! S_IS_COMMON (symbolP))
-    {
-      as_bad (_("ignoring attempt to re-define symbol"));
-      ignore_rest_of_line ();
-      return;
-    }
-  if (((int) S_GET_VALUE (symbolP) != 0) \
-      && ((int) S_GET_VALUE (symbolP) != size))
-    {
-      as_warn (_("length of symbol \"%s\" already %ld, ignoring %d"),
-	       S_GET_NAME (symbolP), (long) S_GET_VALUE (symbolP), size);
-    }
-  gas_assert (symbolP->sy_frag == &zero_address_frag);
-
-  /* Now parse the alignment field.  This field is optional for
-     local and global symbols. Default alignment is zero.  */
   if (*input_line_pointer == ',')
     {
-      input_line_pointer++;
-      align = get_absolute_expression ();
-      if (align < 0)
-	{
-	  align = 0;
-	  as_warn (_("assuming symbol alignment of zero"));
-	}
-    }
-  else if (localScope == 0)
-    align = 0;
+      align = parse_align (1);
 
-  else
-    {
-      as_bad (_("Expected comma after length for lcomm directive"));
-      ignore_rest_of_line ();
-      return;
-    }
-
-
-  if (localScope != 0)
-    {
-      segT old_sec;
-      int old_subsec;
-      char *pfrag;
-
-      old_sec    = now_seg;
-      old_subsec = now_subseg;
-      record_alignment (bss_section, align);
-      subseg_set (bss_section, 0);  /* ??? subseg_set (bss_section, 1); ???  */
-
-      if (align)
-	/* Do alignment.  */
-	frag_align (align, 0, 0);
-
-      /* Detach from old frag.  */
-      if (S_GET_SEGMENT (symbolP) == bss_section)
-	symbolP->sy_frag->fr_symbol = NULL;
-
-      symbolP->sy_frag = frag_now;
-      pfrag = frag_var (rs_org, 1, 1, (relax_substateT) 0, symbolP,
-			(offsetT) size, (char *) 0);
-      *pfrag = 0;
-
-      S_SET_SIZE       (symbolP, size);
-      S_SET_SEGMENT    (symbolP, bss_section);
-      S_CLEAR_EXTERNAL (symbolP);
-      symbol_get_obj (symbolP)->local = 1;
-      subseg_set (old_sec, old_subsec);
+      if (align == (addressT) -1)
+	return NULL;
     }
   else
     {
-      S_SET_VALUE    (symbolP, (valueT) size);
-      S_SET_ALIGN    (symbolP, align);
-      S_SET_EXTERNAL (symbolP);
-      S_SET_SEGMENT  (symbolP, bfd_com_section_ptr);
+      if (size >= 8)
+	align = 3;
+      else if (size >= 4)
+	align = 2;
+      else if (size >= 2)
+	align = 1;
+      else
+	align = 0;
     }
 
-  symbolP->bsym->flags |= BSF_OBJECT;
+  bss_alloc (symbolP, size, align);
+  S_CLEAR_EXTERNAL (symbolP);
 
-  demand_empty_rest_of_line ();
+  return symbolP;
+}
+
+static void
+arc_lcomm (int ignore)
+{
+  symbolS *symbolP = s_comm_internal (ignore, arc_lcomm_internal);
+
+  if (symbolP)
+    symbol_get_bfdsym (symbolP)->flags |= BSF_OBJECT;
 }
 
 /* Select the cpu we're assembling for.  */
@@ -441,7 +367,7 @@ arc_common (int localScope)
 static void
 arc_option (int ignore ATTRIBUTE_UNUSED)
 {
-  int mach = -1, i;
+  int mach = -1;
   char c;
   char *cpu;
 
@@ -708,7 +634,7 @@ tokenize_arguments (char *str,
 
 /* Parse the flags to a structure */
 static int
-tokenize_flags (char *str,
+tokenize_flags (const char *str,
 		struct arc_flags flags[],
 		int nflg)
 {
@@ -722,7 +648,7 @@ tokenize_flags (char *str,
 
   /* Save and restore input_line_pointer around this function.  */
   old_input_line_pointer = input_line_pointer;
-  input_line_pointer = str;
+  input_line_pointer = (char *) str;
 
   while (*input_line_pointer)
     {
