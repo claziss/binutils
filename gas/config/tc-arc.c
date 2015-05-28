@@ -1041,6 +1041,7 @@ md_apply_fix (fixS *fixP,
     case BFD_RELOC_16:
     case BFD_RELOC_24:
     case BFD_RELOC_32:
+    case BFD_RELOC_64:
       md_number_to_chars (fixpos, value, fixP->fx_size);
       return;
 
