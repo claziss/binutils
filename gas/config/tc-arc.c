@@ -603,7 +603,7 @@ tokenize_arguments (char *str,
 	  break;
 
 	case '@':
-	  /* We have labels, function names and reloations, all
+	  /* We have labels, function names and relocations, all
 	     starting with @ symbol. Sort them out. */
 	  if (saw_arg && !saw_comma)
 	    goto err;
@@ -621,7 +621,6 @@ tokenize_arguments (char *str,
 	      goto err;
 	    }
 
-	  ++input_line_pointer;
 	  /* Parse @relocation_type */
 	  memset (&tmpE, 0, sizeof (tmpE));
 	  expression (&tmpE);
