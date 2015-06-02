@@ -852,6 +852,20 @@ relaxable_operand (const struct arc_relaxable_ins *ins,
 	    return 0;
 	  break;
 
+	case REGISTER_S:
+	  if (epr->X_op != O_register)
+	    return 0;
+
+	  switch (epr->X_add_number)
+	  {
+	  case 0:case 1:case 2:case 3:
+	  case 12:case 13:case 14:case 15:
+	    break;
+	  default:
+	    return 0;
+	  }
+	  break;
+
 	case REGISTER_NO_GP:
 	  if (epr->X_op != O_register ||
 	      epr->X_add_number == 26) /* 26 is the gp register. */

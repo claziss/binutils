@@ -58,7 +58,7 @@
 
 #endif /* TARGET_BYTES_BIG_ENDIAN */
 
-#define DEFAULT_RELAX_STATE 0
+#define DEFAULT_RELAX_STATE 1
 
 /* The endianness of the target format may change based on command
    line arguments.  */
@@ -166,6 +166,7 @@ enum rlx_operand_type
 {
   EMPTY = 0,
   REGISTER,
+  REGISTER_S, /* Register for short instruction(s). */
   REGISTER_NO_GP, /* Is a register but not gp register specifically. */
   IMMEDIATE,
   BRACKET
@@ -178,10 +179,11 @@ enum arc_rlx_types
   ARC_RLX_BL,
   ARC_RLX_B_S,
   ARC_RLX_B,
+  ARC_RLX_ADD_U3,
   ARC_RLX_ADD_U6,
   ARC_RLX_ADD_LIMM,
   ARC_RLX_LD_S9,
-  ARC_RLX_LD_LIMM
+  ARC_RLX_LD_LIMM,
 };
 
 /* Structure for relaxable instruction that have to be swapped with a smaller
