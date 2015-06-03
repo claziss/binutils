@@ -182,6 +182,7 @@ enum arc_rlx_types
   ARC_RLX_ADD_U3,
   ARC_RLX_ADD_U6,
   ARC_RLX_ADD_LIMM,
+  ARC_RLX_LD_U7,
   ARC_RLX_LD_S9,
   ARC_RLX_LD_LIMM,
 };
