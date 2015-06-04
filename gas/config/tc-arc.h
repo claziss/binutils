@@ -191,6 +191,8 @@ enum arc_rlx_types
   ARC_RLX_SUB_U3,
   ARC_RLX_SUB_U6,
   ARC_RLX_SUB_LIMM,
+  ARC_RLX_MPY_U6,
+  ARC_RLX_MPY_LIMM,
 };
 
 /* Structure for relaxable instruction that have to be swapped with a smaller

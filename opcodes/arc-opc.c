@@ -2738,6 +2738,8 @@ const struct arc_opcode arc_relax_opcodes[] =
     { "sub_s", 0x00006808, 0x0000F818, ARC_OPCODE_ARC600 | ARC_OPCODE_ARC700 | ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS, { RC_S, RB_S, UIMM3_13_S_PCREL }, { 0 }},
     { "sub", 0x20420000, 0xF8FF0000, ARC_OPCODE_ARC600 | ARC_OPCODE_ARC700 | ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS, { RA, RB, UIMM6_20_PCREL }, { C_F }},
     { "sub", 0x20020F80, 0xF8FF0FC0, ARC_OPCODE_ARC600 | ARC_OPCODE_ARC700 | ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS, { RA, RB, LIMM }, { C_F }},
+    { "mpy", 0x205A0000, 0xF8FF0000, ARC_OPCODE_ARC700 | ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS, { RA, RB, UIMM6_20_PCREL }, { C_F }},
+    { "mpy", 0x201A0F80, 0xF8FF0FC0, ARC_OPCODE_ARC700 | ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS, { RA, RB, LIMM }, { C_F }},
   };
 
 const unsigned arc_num_relax_opcodes = sizeof (arc_relax_opcodes) / sizeof (*arc_relax_opcodes);

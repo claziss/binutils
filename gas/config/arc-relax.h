@@ -83,6 +83,11 @@ const relax_typeS md_relax_table[] =
   RELAX_TABLE_ENTRY(3, 0, 2, ARC_RLX_SUB_U6),
   RELAX_TABLE_ENTRY(6, 0, 4, ARC_RLX_SUB_LIMM),
   RELAX_TABLE_ENTRY_MAX(0, 8, ARC_RLX_NONE),
+
+  /* MPY<.f> a, b, u6 ->
+     MPY<.f> a, b, limm */
+  RELAX_TABLE_ENTRY(6, 0, 4, ARC_RLX_MPY_LIMM),
+  RELAX_TABLE_ENTRY_MAX(0, 8, ARC_RLX_NONE),
 };
 
 /* Order of this table's entries matters! */
@@ -98,6 +103,7 @@ const struct arc_relaxable_ins arc_relaxable_insns[] =
     { "mov", { REGISTER, IMMEDIATE }, { 5, 0 }, "mov", 1, ARC_RLX_MOV_S12 },
     { "sub", { REGISTER_S, REGISTER_S, IMMEDIATE }, { 0 }, "sub_s", 2, ARC_RLX_SUB_U3 },
     { "sub", { REGISTER, REGISTER, IMMEDIATE }, { 5, 0 }, "sub", 2, ARC_RLX_SUB_U6 },
+    { "mpy", { REGISTER, REGISTER, IMMEDIATE }, { 5, 0 }, "mpy", 2, ARC_RLX_MPY_U6 },
   };
 
 const unsigned arc_num_relaxable_ins = sizeof (arc_relaxable_insns)
