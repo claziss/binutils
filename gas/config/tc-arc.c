@@ -847,6 +847,11 @@ relaxable_operand (const struct arc_relaxable_ins *ins,
 	    return 0;
 	  break;
 
+	  case REGISTER_DUP:
+	  if (i <= 0 ||
+	      epr->X_add_number != tok[i - 1].X_add_number)
+	    return 0;
+	/* Fall through */
 	case REGISTER:
 	  if (epr->X_op != O_register)
 	    return 0;

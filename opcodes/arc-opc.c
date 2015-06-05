@@ -2603,6 +2603,10 @@ const struct arc_operand arc_operands[] =
 #define SIMM12_20_PCREL       (UIMM8_8_S_PCREL + 1)
     {12, 0, -SIMM12_20_PCREL, ARC_OPERAND_SIGNED, insert_simm12_20, extract_simm12_20},
 
+    /* UIMM7_9_S_PCREL mask = 0000000001111111 */
+#define UIMM7_9_S_PCREL       (SIMM12_20_PCREL + 1)
+    {7, 0, -UIMM7_9_S_PCREL, ARC_OPERAND_UNSIGNED, insert_uimm7_9_s, extract_uimm7_9_s},
+
 #endif
   };
 const unsigned arc_num_operands = sizeof(arc_operands)/sizeof(*arc_operands);
@@ -2742,6 +2746,9 @@ const struct arc_opcode arc_relax_opcodes[] =
     { "mpy", 0x201A0F80, 0xF8FF0FC0, ARC_OPCODE_ARC700 | ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS, { RA, RB, LIMM }, { C_F }},
     { "mov", 0x20CA0020, 0xF8FF0020, ARC_OPCODE_ARC600 | ARC_OPCODE_ARC700 | ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS, { RB, UIMM6_20_PCREL }, { C_F, C_CC }},
     { "mov", 0x20CA0F80, 0xF8FF0FE0, ARC_OPCODE_ARC600 | ARC_OPCODE_ARC700 | ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS, { RB, LIMM }, { C_F, C_CC }},
+    { "add", 0x20C00020, 0xF8FF0020, ARC_OPCODE_ARC600 | ARC_OPCODE_ARC700 | ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS, { RB, RBdup, UIMM6_20_PCREL }, { C_F, C_CC }},
+    { "add", 0x20C00F80, 0xF8FF0FE0, ARC_OPCODE_ARC600 | ARC_OPCODE_ARC700 | ARC_OPCODE_ARCv2EM | ARC_OPCODE_ARCv2HS, { RB, RBdup, LIMM }, { C_F, C_CC }},
+
   };
 
 const unsigned arc_num_relax_opcodes = sizeof (arc_relax_opcodes) / sizeof (*arc_relax_opcodes);

@@ -168,6 +168,7 @@ enum rlx_operand_type
   REGISTER,
   REGISTER_S, /* Register for short instruction(s). */
   REGISTER_NO_GP, /* Is a register but not gp register specifically. */
+  REGISTER_DUP, /* Duplication of previous operand of type register. */
   IMMEDIATE,
   BRACKET
 };
@@ -195,6 +196,8 @@ enum arc_rlx_types
   ARC_RLX_MPY_LIMM,
   ARC_RLX_MOV_RU6,
   ARC_RLX_MOV_RLIMM,
+  ARC_RLX_ADD_RRU6,
+  ARC_RLX_ADD_RRLIMM,
 };
 
 /* Structure for relaxable instruction that have to be swapped with a smaller

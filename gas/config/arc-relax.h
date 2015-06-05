@@ -93,6 +93,11 @@ const relax_typeS md_relax_table[] =
      MOV<.f><.cc> b, limm */
   RELAX_TABLE_ENTRY(6, 0, 4, ARC_RLX_MOV_RLIMM),
   RELAX_TABLE_ENTRY_MAX(0, 8, ARC_RLX_NONE),
+
+  /* ADD<.f><.cc> b, b, u6 ->
+     ADD<.f><.cc> b, b, limm */
+  RELAX_TABLE_ENTRY(6, 0, 4, ARC_RLX_ADD_RRLIMM),
+  RELAX_TABLE_ENTRY_MAX(0, 8, ARC_RLX_NONE),
 };
 
 /* Order of this table's entries matters! */
@@ -100,6 +105,7 @@ const struct arc_relaxable_ins arc_relaxable_insns[] =
   {
     { "bl", { IMMEDIATE }, { 0 }, "bl_s", 0, ARC_RLX_BL_S },
     { "b", { IMMEDIATE }, { 0 }, "b_s", 0, ARC_RLX_B_S },
+    { "add", { REGISTER, REGISTER_DUP, IMMEDIATE }, { 5, 1, 0 }, "add", 2, ARC_RLX_ADD_RRU6},
     { "add", { REGISTER_S, REGISTER_S, IMMEDIATE }, { 0 }, "add_s", 2, ARC_RLX_ADD_U3 },
     { "add", { REGISTER, REGISTER, IMMEDIATE }, { 5, 0 }, "add", 2, ARC_RLX_ADD_U6 },
     { "ld", { REGISTER_S, BRACKET, REGISTER_S, IMMEDIATE, BRACKET }, { 0 }, "ld_s", 3, ARC_RLX_LD_U7 },
