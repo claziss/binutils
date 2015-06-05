@@ -88,6 +88,11 @@ const relax_typeS md_relax_table[] =
      MPY<.f> a, b, limm */
   RELAX_TABLE_ENTRY(6, 0, 4, ARC_RLX_MPY_LIMM),
   RELAX_TABLE_ENTRY_MAX(0, 8, ARC_RLX_NONE),
+
+  /* MOV<.f><.cc> b, u6 ->
+     MOV<.f><.cc> b, limm */
+  RELAX_TABLE_ENTRY(6, 0, 4, ARC_RLX_MOV_RLIMM),
+  RELAX_TABLE_ENTRY_MAX(0, 8, ARC_RLX_NONE),
 };
 
 /* Order of this table's entries matters! */
@@ -101,6 +106,7 @@ const struct arc_relaxable_ins arc_relaxable_insns[] =
     { "ld", { REGISTER, BRACKET, REGISTER_NO_GP, IMMEDIATE, BRACKET }, { 11, 4, 14, 17, 0 }, "ld", 3, ARC_RLX_LD_S9 },
     { "mov", { REGISTER_S, IMMEDIATE }, { 0 }, "mov_s", 1, ARC_RLX_MOV_U8 },
     { "mov", { REGISTER, IMMEDIATE }, { 5, 0 }, "mov", 1, ARC_RLX_MOV_S12 },
+    { "mov", { REGISTER, IMMEDIATE }, { 5, 1, 0 },"mov", 1, ARC_RLX_MOV_RU6 },
     { "sub", { REGISTER_S, REGISTER_S, IMMEDIATE }, { 0 }, "sub_s", 2, ARC_RLX_SUB_U3 },
     { "sub", { REGISTER, REGISTER, IMMEDIATE }, { 5, 0 }, "sub", 2, ARC_RLX_SUB_U6 },
     { "mpy", { REGISTER, REGISTER, IMMEDIATE }, { 5, 0 }, "mpy", 2, ARC_RLX_MPY_U6 },
